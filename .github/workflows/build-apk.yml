@@ -31,9 +31,10 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Descargar dependencias de Flutter
+      - name: Generar andamiaje y resolver dependencias
         run: |
           cd mobile
+          flutter create . --org com.vialibre --platforms=android,ios
           flutter pub get
 
       - name: Compilar APK en Release
