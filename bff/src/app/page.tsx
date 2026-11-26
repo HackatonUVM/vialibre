@@ -31,6 +31,46 @@ export default function HomePage() {
         <p style={{ margin: 0, color: '#E2E8F0', lineHeight: 1.6 }}>
           Este servicio opera como la capa segura <strong>BFF (Backend for Frontend)</strong> en Next.js App Router para Vercel, protegiendo las credenciales de <strong>Google Gemini (@google/genai)</strong>, <strong>Google Maps Platform</strong> y orquestando la deduplicación espacial en <strong>Supabase (PostGIS + pgvector)</strong>.
         </p>
+
+        <div style={{ marginTop: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <a
+            href="/app"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: '#FFB300',
+              color: '#0A192F',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: 'bold',
+              fontSize: '15px',
+            }}
+          >
+            📱 Abrir App Móvil Web (PWA para iPhone & Android)
+          </a>
+          <a
+            href="/api/health"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: '#1E293B',
+              color: '#93C5FD',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '14px',
+              border: '1px solid #3B82F6',
+            }}
+          >
+            🩺 Probar /api/health
+          </a>
+        </div>
       </section>
 
       <section>
