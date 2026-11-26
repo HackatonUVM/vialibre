@@ -6,6 +6,15 @@ Aplicación móvil para **Android (Flutter)** enfocada en navegación peatonal a
 
 ---
 
+## Acceso y Despliegue en Vivo
+
+- 📱 **Descarga directa Android (APK):** [Descargar app-release.apk (v1.0.0-mvp)](https://github.com/HackatonUVM/vialibre/releases/download/v1.0.0-mvp/app-release.apk)
+- 🌐 **App Web Móvil (PWA para iPhone y Android):** [https://bff-steel.vercel.app/app](https://bff-steel.vercel.app/app) *(En iOS Safari toca Compartir > Agregar a pantalla de inicio)*
+- ⚡ **Backend BFF (Next.js en Vercel):** [https://bff-steel.vercel.app](https://bff-steel.vercel.app)
+- 📦 **GitHub Releases:** [Ver Release v1.0.0-mvp](https://github.com/HackatonUVM/vialibre/releases/tag/v1.0.0-mvp)
+
+---
+
 ## Flujos principales del MVP
 
 1. **Búsqueda y ruta peatonal accesible por perfil**: Selección de perfil (silla de ruedas / carriola, baja visión o lectura clara), rutas peatonales considerando pendientes y obstáculos reportados, y lectura por voz.

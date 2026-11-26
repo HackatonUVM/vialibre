@@ -12,7 +12,9 @@
 - **Reto:** Hackatón Nacional de Innovación con IA Aplicada — Ingenio Incluyente (ODS 10 y 11)
 - **Enlace al boceto visual (Google Stitch):** https://stitch.google.com/projects/11135309563401328808
 - **Repositorio GitHub:** https://github.com/HackatonUVM/vialibre
-- **Enlace de descarga Android (APK / demo):** [PENDIENTE]
+- **Enlace de descarga Android (APK Release):** [Descargar app-release.apk (v1.0.0-mvp)](https://github.com/HackatonUVM/vialibre/releases/download/v1.0.0-mvp/app-release.apk) · [Ver Release en GitHub](https://github.com/HackatonUVM/vialibre/releases/tag/v1.0.0-mvp)
+- **App Móvil Web (PWA para iPhone & Android):** https://bff-steel.vercel.app/app
+- **Backend BFF en Vercel:** https://bff-steel.vercel.app
 
 ---
 
