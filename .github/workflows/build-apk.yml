@@ -31,10 +31,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generar andamiaje y resolver dependencias
+      - name: Generar andamiaje y configurar NDK
         run: |
           cd mobile
           flutter create . --org com.vialibre --platforms=android,ios
+          # Configurar NDK requerido por plugins de Flutter
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i 's/ndkVersion = .*/ndkVersion = "27.0.12077973"/' android/app/build.gradle.kts || true
+          fi
           flutter pub get
 
       - name: Compilar APK en Release
