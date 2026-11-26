@@ -1,0 +1,61 @@
+# === OS & Editors ===
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# === Secrets & Environment ===
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+key.properties
+google-services.json
+GoogleService-Info.plist
+
+# === Local Prompt / Scratch & Excluded Docs ===
+Prompt_Documentacion_*.docx
+docs/VíaLibre - Boceto y Documentación con IA (Fase 2).*
+*.tmp
+*.bak
+
+# === Flutter / Dart (mobile/) ===
+mobile/.dart_tool/
+mobile/.packages
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/**/*.g.dart
+mobile/**/*.freezed.dart
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/**/captures/
+mobile/android/gradlew
+mobile/android/gradlew.bat
+mobile/android/gradle/wrapper/gradle-wrapper.jar
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+
+# === Next.js BFF / Node.js (bff/) ===
+bff/node_modules/
+bff/.next/
+bff/out/
+bff/build/
+bff/dist/
+bff/.vercel/
+bff/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# === Supabase ===
+supabase/.branches/
+supabase/.temp/
