@@ -42,6 +42,7 @@ vialibre/
 ## Documentación
 
 - [Propuesta Reto 2 - VíaLibre (Ciudad para todas y todos - ODS 11)](docs/Propuesta%20Reto%202%20-%20V%C3%ADaLibre%20(Ciudad%20para%20todas%20y%20todos%20-%20ODS%2011).pdf)
+- [Bocetos y sistema de diseño de la app](docs/bocetos/README.md)
 
 ## Equipo
 
