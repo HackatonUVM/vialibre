@@ -13,6 +13,8 @@ jobs:
   build-apk:
     name: Compilar APK Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Descargar código fuente
@@ -31,24 +33,25 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generar andamiaje y configurar NDK
+      - name: Instalar dependencias Flutter
         run: |
           cd mobile
-          flutter create . --org com.vialibre --platforms=android,ios
-          # Configurar NDK requerido por plugins de Flutter
-          if [ -f android/app/build.gradle.kts ]; then
-            sed -i 's/ndkVersion = .*/ndkVersion = "27.0.12077973"/' android/app/build.gradle.kts || true
-          fi
           flutter pub get
 
       - name: Compilar APK en Release
         run: |
           cd mobile
-          flutter build apk --release --no-tree-shake-icons
+          flutter build apk --release --no-tree-shake-icons --dart-define=BFF_BASE_URL=https://bff-steel.vercel.app
 
-      - name: Publicar APK para descarga directa
+      - name: Publicar APK para descarga directa como Artifact
         uses: actions/upload-artifact@v4
         with:
           name: vialibre-android-release
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 14
+
+      - name: Actualizar binario en GitHub Release v1.0.0-mvp
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v1.0.0-mvp mobile/build/app/outputs/flutter-apk/app-release.apk --clobber || true

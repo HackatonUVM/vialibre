@@ -15,7 +15,7 @@ class Env {
 
   static const String bffBaseUrl = String.fromEnvironment(
     'BFF_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000',
+    defaultValue: 'https://bff-steel.vercel.app',
   );
 
   static const String googleMapsMapId = String.fromEnvironment(
