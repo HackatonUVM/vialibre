@@ -10,11 +10,15 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Atribución de uso requerida por Google Maps Platform
-        MapsApiSettings.addInternalUsageAttributionId(
-            applicationContext,
-            "gmp_git_agentskills_v1"
-        )
+        try {
+            // Atribución de uso requerida por Google Maps Platform
+            MapsApiSettings.addInternalUsageAttributionId(
+                applicationContext,
+                "gmp_git_agentskills_v1"
+            )
+        } catch (e: Throwable) {
+            // No bloquear el inicio de la app si Play Services o Maps no están presentes
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

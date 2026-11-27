@@ -22,17 +22,21 @@ class _ViaLibreAppState extends ConsumerState<ViaLibreApp> {
   void initState() {
     super.initState();
     Future.microtask(() async {
-      await ref.read(authStateProvider.future);
-      final sync = ref.read(syncManagerProvider);
-      final initialCount = await sync.pendingCount();
-      if (mounted) {
-        ref.read(pendingOfflineCountProvider.notifier).state = initialCount;
-      }
-      sync.startListening((remaining) {
+      try {
+        await ref.read(authStateProvider.future);
+      } catch (_) {}
+      try {
+        final sync = ref.read(syncManagerProvider);
+        final initialCount = await sync.pendingCount();
         if (mounted) {
-          ref.read(pendingOfflineCountProvider.notifier).state = remaining;
+          ref.read(pendingOfflineCountProvider.notifier).state = initialCount;
         }
-      });
+        sync.startListening((remaining) {
+          if (mounted) {
+            ref.read(pendingOfflineCountProvider.notifier).state = remaining;
+          }
+        });
+      } catch (_) {}
     });
   }
 
