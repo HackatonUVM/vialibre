@@ -38,7 +38,6 @@ const PROFILE_LABELS: Record<ProfileType, string> = {
 export default function ViaLibreOfficialApp() {
   const [activeTab, setActiveTab] = useState<TabType>('explore');
   const [profile, setProfile] = useState<ProfileType>('clear_reading');
-  const [usePhoneFrame, setUsePhoneFrame] = useState(true);
 
   // Modales
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -48,9 +47,13 @@ export default function ViaLibreOfficialApp() {
   // Explorar & Búsqueda
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Mapa
+  // Mapa Interactivo (Zoom, Paneo, Pines)
   const [mapSearchQuery, setMapSearchQuery] = useState('');
   const [activeMapChip, setActiveMapChip] = useState('Lectura clara');
+  const [mapZoom, setMapZoom] = useState(1);
+  const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
+  const [isDraggingMap, setIsDraggingMap] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [selectedPoi, setSelectedPoi] = useState<string | null>(null);
   const [routeResult, setRouteResult] = useState<any>(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
@@ -91,7 +94,7 @@ export default function ViaLibreOfficialApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  // Lanzar búsqueda y cambiar a pestaña de mapa
+  // Búsqueda y Rutas
   const launchMapSearch = (query?: string) => {
     const q = (query ?? searchQuery).trim();
     if (q) {
@@ -135,7 +138,6 @@ export default function ViaLibreOfficialApp() {
       setLoadingRoute(false);
     }
   };
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -169,6 +171,7 @@ export default function ViaLibreOfficialApp() {
     };
     reader.readAsDataURL(file);
   };
+
   const handleSubmitReport = async () => {
     setSubmittingReport(true);
     setReportSuccessMessage(null);
@@ -266,7 +269,7 @@ export default function ViaLibreOfficialApp() {
         body: JSON.stringify({ message: copilotInput, profile }),
       });
       const data = await res.json();
-      setCopilotAnswer(data.reply || 'Te recomiendo cruzar por rampa con guía podotáctil sobre Av. Juárez.');
+      setCopilotAnswer(data.replyText || data.reply || 'Te recomiendo cruzar por rampa con guía podotáctil sobre Av. Juárez.');
     } catch {
       setCopilotAnswer('Para tu perfil (' + PROFILE_LABELS[profile] + '), te sugiero la ruta con cero escalones por Av. Hidalgo.');
     } finally {
@@ -291,105 +294,27 @@ export default function ViaLibreOfficialApp() {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: '#0D0E12',
+        backgroundColor: PALETTE.canvas,
         color: PALETTE.ink,
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
         display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
         justifyContent: 'center',
-        padding: usePhoneFrame ? '16px 12px' : '0',
         boxSizing: 'border-box',
       }}
     >
-      {/* BARRA SUPERIOR PARA DESKTOP / PRESENTACIÓN ANTE JUECES */}
+      {/* CONTENEDOR MÓVIL LIMPIO Y NATIVO (Sin isla dinámica ni reloj falso) */}
       <div
         style={{
           width: '100%',
           maxWidth: '430px',
-          marginBottom: '10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '12px',
-          color: '#8E8E9B',
-          padding: '0 8px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E' }}></span>
-          <span style={{ fontWeight: 600 }}>VíaLibre Móvil · Prototipo Oficial</span>
-        </div>
-        <button
-          onClick={() => setUsePhoneFrame(!usePhoneFrame)}
-          style={{
-            backgroundColor: '#1E1F27',
-            border: '1px solid #363640',
-            color: '#FAF8F5',
-            borderRadius: '12px',
-            padding: '4px 10px',
-            fontSize: '11px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          {usePhoneFrame ? '🖥️ Pantalla Completa' : '📱 Marco Celular'}
-        </button>
-      </div>
-
-      {/* MARCO DE CELULAR (SMARTPHONE MOCKUP EXACTO) */}
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '416px',
-          height: usePhoneFrame ? '860px' : '100vh',
-          maxHeight: usePhoneFrame ? '92vh' : '100vh',
+          minHeight: '100vh',
           backgroundColor: PALETTE.canvas,
-          borderRadius: usePhoneFrame ? '46px' : '0',
-          border: usePhoneFrame ? '4px solid #2C2D38' : 'none',
-          boxShadow: usePhoneFrame
-            ? '0 25px 60px -15px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.08)'
-            : 'none',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
           boxSizing: 'border-box',
         }}
       >
-        {/* BARRA DE ESTADO ANDROID / IPHONE (6:19, 100%, 5G) */}
-        <div
-          style={{
-            height: '38px',
-            backgroundColor: activeTab === 'map' ? 'rgba(17, 18, 22, 0.95)' : PALETTE.canvas,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 22px',
-            fontSize: '13px',
-            fontWeight: 700,
-            color: PALETTE.ink,
-            zIndex: 30,
-            flexShrink: 0,
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <span>6:19</span>
-          <div
-            style={{
-              width: '84px',
-              height: '18px',
-              backgroundColor: '#000000',
-              borderRadius: '12px',
-            }}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-            <span>5G</span>
-            <span>📶</span>
-            <span>🔋 100</span>
-          </div>
-        </div>
-
         {/* CONTENEDOR PRINCIPAL CON SCROLL INDEPENDIENTE */}
         <div
           style={{
@@ -401,10 +326,10 @@ export default function ViaLibreOfficialApp() {
           }}
         >
           {/* ======================================================== */}
-          {/* TAB 1: EXPLORAR (Capturas 5 y 6) */}
+          {/* TAB 1: EXPLORAR */}
           {/* ======================================================== */}
           {activeTab === 'explore' && (
-            <div style={{ padding: '16px 18px 120px 18px' }}>
+            <div style={{ padding: '20px 18px 120px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <img
@@ -757,16 +682,37 @@ export default function ViaLibreOfficialApp() {
           )}
 
           {/* ======================================================== */}
-          {/* TAB 2: MAPA OSCURO EDGE-TO-EDGE (Captura 1) */}
+          {/* TAB 2: MAPA INTERACTIVO (Arrastrable, Zoom y Pines en vivo) */}
           {/* ======================================================== */}
           {activeTab === 'map' && (
-            <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '680px' }}>
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                height: '100vh',
+                minHeight: '700px',
+                overflow: 'hidden',
+                userSelect: 'none',
+              }}
+              onMouseDown={(e) => {
+                setIsDraggingMap(true);
+                setDragStart({ x: e.clientX - mapPan.x, y: e.clientY - mapPan.y });
+              }}
+              onMouseMove={(e) => {
+                if (!isDraggingMap) return;
+                setMapPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+              }}
+              onMouseUp={() => setIsDraggingMap(false)}
+              onMouseLeave={() => setIsDraggingMap(false)}
+            >
               <div
                 style={{
                   position: 'absolute',
                   inset: 0,
                   backgroundColor: PALETTE.mapDarkBg,
-                  overflow: 'hidden',
+                  transform: `translate(${mapPan.x}px, ${mapPan.y}px) scale(${mapZoom})`,
+                  transformOrigin: 'center center',
+                  transition: isDraggingMap ? 'none' : 'transform 0.15s ease-out',
                 }}
               >
                 <svg
@@ -792,7 +738,11 @@ export default function ViaLibreOfficialApp() {
 
                 {/* 1. Sam's Club */}
                 <div
-                  onClick={() => setSelectedPoi("Sam's Club")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPoi("Sam's Club");
+                    calculateAccessibleRoute("Sam's Club");
+                  }}
                   style={{
                     position: 'absolute',
                     top: '170px',
@@ -805,15 +755,16 @@ export default function ViaLibreOfficialApp() {
                 >
                   <div
                     style={{
-                      width: '28px',
-                      height: '28px',
+                      width: '30px',
+                      height: '30px',
                       borderRadius: '50%',
                       backgroundColor: '#0284C7',
                       border: '2px solid #FFFFFF',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '13px',
+                      fontSize: '14px',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
                     }}
                   >
                     🛍️
@@ -823,7 +774,11 @@ export default function ViaLibreOfficialApp() {
 
                 {/* 2. Salon De Fiestas Orion */}
                 <div
-                  onClick={() => setSelectedPoi('Salon De Fiestas Orion')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPoi('Salon De Fiestas Orion');
+                    calculateAccessibleRoute('Salon De Fiestas Orion');
+                  }}
                   style={{
                     position: 'absolute',
                     top: '320px',
@@ -837,15 +792,16 @@ export default function ViaLibreOfficialApp() {
                   <span style={{ fontSize: '11px', fontWeight: 600, color: '#FAF8F5' }}>Salon De Fiestas Orion</span>
                   <div
                     style={{
-                      width: '28px',
-                      height: '28px',
+                      width: '30px',
+                      height: '30px',
                       borderRadius: '50%',
                       backgroundColor: '#8B5CF6',
                       border: '2px solid #FFFFFF',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '13px',
+                      fontSize: '14px',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
                     }}
                   >
                     🏰
@@ -854,7 +810,11 @@ export default function ViaLibreOfficialApp() {
 
                 {/* 3. UVM Campus Lomas Verdes */}
                 <div
-                  onClick={() => setSelectedPoi('UVM Campus Lomas Verdes')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPoi('UVM Campus Lomas Verdes');
+                    calculateAccessibleRoute('UVM Campus Lomas Verdes');
+                  }}
                   style={{
                     position: 'absolute',
                     top: '360px',
@@ -873,27 +833,56 @@ export default function ViaLibreOfficialApp() {
                   </div>
                   <div
                     style={{
-                      width: '32px',
-                      height: '32px',
+                      width: '34px',
+                      height: '34px',
                       borderRadius: '50%',
                       backgroundColor: '#0284C7',
                       border: '2px solid #FFFFFF',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '15px',
+                      fontSize: '16px',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
                     }}
                   >
                     🎓
                   </div>
                 </div>
 
-                <button
-                  aria-label="Centrar en mi ubicación"
+                <div
                   style={{
                     position: 'absolute',
-                    top: '124px',
-                    right: '16px',
+                    bottom: '100px',
+                    left: '16px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'rgba(255,255,255,0.4)',
+                    letterSpacing: '-0.3px',
+                  }}
+                >
+                  Google Maps
+                </div>
+              </div>
+
+              {/* CONTROLES DE ZOOM Y CENTRADO FLOTANTES */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '124px',
+                  right: '16px',
+                  zIndex: 25,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <button
+                  onClick={() => {
+                    setMapPan({ x: 0, y: 0 });
+                    setMapZoom(1);
+                  }}
+                  aria-label="Centrar en mi ubicación"
+                  style={{
                     width: '42px',
                     height: '42px',
                     borderRadius: '12px',
@@ -910,27 +899,55 @@ export default function ViaLibreOfficialApp() {
                 >
                   🎯
                 </button>
-
-                <div
+                <button
+                  onClick={() => setMapZoom((prev) => Math.min(2.2, prev + 0.25))}
+                  aria-label="Acercar mapa"
                   style={{
-                    position: 'absolute',
-                    bottom: '100px',
-                    left: '16px',
-                    fontSize: '14px',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    backgroundColor: '#1E1F27',
+                    border: '1px solid #363640',
+                    color: '#FAF8F5',
+                    fontSize: '20px',
                     fontWeight: 700,
-                    color: 'rgba(255,255,255,0.4)',
-                    letterSpacing: '-0.3px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
                   }}
                 >
-                  Google
-                </div>
+                  +
+                </button>
+                <button
+                  onClick={() => setMapZoom((prev) => Math.max(0.75, prev - 0.25))}
+                  aria-label="Alejar mapa"
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    backgroundColor: '#1E1F27',
+                    border: '1px solid #363640',
+                    color: '#FAF8F5',
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  −
+                </button>
               </div>
 
-              {/* OVERLAY FLOTANTE SUPERIOR */}
+              {/* OVERLAY SUPERIOR FLOTANTE */}
               <div
                 style={{
                   position: 'absolute',
-                  top: '12px',
+                  top: '16px',
                   left: '16px',
                   right: '16px',
                   zIndex: 20,
@@ -1098,10 +1115,10 @@ export default function ViaLibreOfficialApp() {
             </div>
           )}
           {/* ======================================================== */}
-          {/* TAB 3: REPORTAR OBSTÁCULO (Captura 2) */}
+          {/* TAB 3: REPORTAR OBSTÁCULO */}
           {/* ======================================================== */}
           {activeTab === 'report' && (
-            <div style={{ padding: '16px 18px 120px 18px' }}>
+            <div style={{ padding: '20px 18px 120px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ fontSize: '13px', color: PALETTE.muted, fontWeight: 600 }}>
@@ -1135,7 +1152,6 @@ export default function ViaLibreOfficialApp() {
                 Ayuda a mantener las rutas libres capturando rampas bloqueadas, banquetas rotas o elevadores sin servicio.
               </p>
 
-              {/* DOS GRANDES BOTONES DE ACCIÓN (50/50: Tomar foto / Nota de voz) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -1258,7 +1274,6 @@ export default function ViaLibreOfficialApp() {
                 </div>
               )}
 
-              {/* TARJETA VERDE DE PRIVACIDAD EXIF CERO (Captura 2) */}
               <div
                 style={{
                   marginTop: '16px',
@@ -1276,7 +1291,6 @@ export default function ViaLibreOfficialApp() {
                 </span>
               </div>
 
-              {/* DETALLES DEL OBSTÁCULO (OPCIONAL) */}
               <div style={{ marginTop: '16px' }}>
                 <textarea
                   value={reportNote}
@@ -1315,7 +1329,6 @@ export default function ViaLibreOfficialApp() {
                 </div>
               )}
 
-              {/* BOTÓN BLANCO CON CÍRCULO ROJO Y FLECHA (Captura 2) */}
               <button
                 onClick={handleSubmitReport}
                 disabled={submittingReport}
@@ -1357,10 +1370,10 @@ export default function ViaLibreOfficialApp() {
           )}
 
           {/* ======================================================== */}
-          {/* TAB 4: AVISOS CLAROS (Capturas 3 y 4) */}
+          {/* TAB 4: AVISOS CLAROS */}
           {/* ======================================================== */}
           {activeTab === 'briefs' && (
-            <div style={{ padding: '16px 18px 120px 18px' }}>
+            <div style={{ padding: '20px 18px 120px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ fontSize: '13px', color: PALETTE.muted, fontWeight: 600 }}>
@@ -1412,7 +1425,6 @@ export default function ViaLibreOfficialApp() {
                 </button>
               </div>
 
-              {/* TARJETA DE REPRODUCTOR DE VOZ (Captura 3) */}
               <div
                 style={{
                   backgroundColor: '#1D1E27',
@@ -1497,7 +1509,6 @@ export default function ViaLibreOfficialApp() {
                 </div>
               </div>
 
-              {/* SECCIÓN: SUBIR CIRCULAR, PDF O FOTO (Captura 3) */}
               <div
                 style={{
                   border: '1.5px solid #FFFFFF',
@@ -1626,7 +1637,6 @@ export default function ViaLibreOfficialApp() {
                 </div>
               </div>
 
-              {/* TÍTULO Y EMISOR */}
               <div style={{ marginBottom: '14px' }}>
                 <h2
                   style={{
@@ -1641,7 +1651,6 @@ export default function ViaLibreOfficialApp() {
                 <div style={{ fontSize: '13px', color: PALETTE.muted }}>Emisor: {activeNotice.issuer}</div>
               </div>
 
-              {/* LAS 3 TARJETAS PASO A PASO (Capturas 3 y 4) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div
                   style={{
@@ -1789,15 +1798,17 @@ export default function ViaLibreOfficialApp() {
           )}
         </div>
         {/* ======================================================== */}
-        {/* BARRA FLOTANTE INFERIOR CON PÍLDORA ROJA (Idéntica a Flutter) */}
+        {/* BARRA FLOTANTE INFERIOR CON PÍLDORA ROJA */}
         {/* ======================================================== */}
         <div
           style={{
-            position: 'absolute',
-            bottom: '12px',
-            left: '16px',
-            right: '16px',
-            zIndex: 40,
+            position: 'fixed',
+            bottom: '16px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'calc(100% - 32px)',
+            maxWidth: '398px',
+            zIndex: 50,
             pointerEvents: 'none',
           }}
         >
@@ -1811,7 +1822,7 @@ export default function ViaLibreOfficialApp() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.65)',
               backdropFilter: 'blur(10px)',
             }}
           >
@@ -1850,21 +1861,6 @@ export default function ViaLibreOfficialApp() {
               );
             })}
           </nav>
-        </div>
-
-        {/* Indicador inferior de gestos Android (══) */}
-        <div
-          style={{
-            height: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: activeTab === 'map' ? 'transparent' : PALETTE.canvas,
-            zIndex: 45,
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ width: '72px', height: '4px', backgroundColor: '#52525B', borderRadius: '2px' }} />
         </div>
       </div>
 
