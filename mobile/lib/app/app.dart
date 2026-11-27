@@ -81,6 +81,15 @@ class _ViaLibreAppState extends ConsumerState<ViaLibreApp> {
             ViaLibreTheme.buildDarkTheme(highContrast: highContrast),
           ),
           routerConfig: router,
+          builder: (context, child) {
+            final textScaler = (prefs?.largeText ?? false)
+                ? const TextScaler.linear(1.22)
+                : MediaQuery.of(context).textScaler;
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+              child: child!,
+            );
+          },
         ),
       ),
     );

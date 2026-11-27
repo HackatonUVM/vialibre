@@ -39,9 +39,14 @@ jobs:
           flutter pub get
 
       - name: Compilar APK en Release
+        env:
+          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY || '' }}
         run: |
           cd mobile
-          flutter build apk --release --no-tree-shake-icons --dart-define=BFF_BASE_URL=https://bff-steel.vercel.app
+          flutter build apk --release --no-tree-shake-icons \
+            --dart-define=BFF_BASE_URL=https://bff-steel.vercel.app \
+            --dart-define=SUPABASE_URL=https://aiztivgrynirvdkcdugd.supabase.co \
+            --dart-define=SUPABASE_ANON_KEY="${SUPABASE_KEY}"
 
       - name: Publicar APK para descarga directa como Artifact
         uses: actions/upload-artifact@v4

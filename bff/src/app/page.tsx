@@ -4,7 +4,7 @@ export default function HomePage() {
       method: 'GET /api/health',
       badge: 'Público',
       accent: '#86EFAC',
-      desc: 'Monitoreo de salud del servicio e integraciones activas (Supabase, Gemini, Google Maps).',
+      desc: 'Monitoreo de salud del servicio e integraciones activas (Supabase, Gemini, Valhalla / OSRM / OpenStreetMap).',
     },
     {
       method: 'POST /api/routes/accessible',
@@ -102,7 +102,7 @@ export default function HomePage() {
         <p style={{ margin: 0, color: '#B8B8C4', lineHeight: 1.6, fontSize: '14px' }}>
           Accede directamente a la versión web móvil de <strong style={{ color: '#FAF8F5' }}>VíaLibre</strong> con el
           sistema de diseño <strong style={{ color: '#EF4756' }}>Calma Urbana</strong> o consulta el estado de los
-          endpoints conectados a Supabase, Google Gemini y Google Maps Platform.
+          endpoints conectados a Supabase, Google Gemini y OpenStreetMap / Valhalla / Open-Meteo.
         </p>
 
         <div style={{ marginTop: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>

@@ -43,6 +43,27 @@ export default function ViaLibreOfficialApp() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCopilotModal, setShowCopilotModal] = useState(false);
   const [showFirstTimerModal, setShowFirstTimerModal] = useState(false);
+  const [showAssessModal, setShowAssessModal] = useState(false);
+  const [assessResult, setAssessResult] = useState<any>(null);
+  const [evaluatingPhoto, setEvaluatingPhoto] = useState(false);
+  const [assessImagePreview, setAssessImagePreview] = useState<string | null>(null);
+
+  // Persistencia de perfil en localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('vialibre_profile');
+      if (saved && (saved === 'wheelchair' || saved === 'low_vision' || saved === 'clear_reading')) {
+        setProfile(saved as ProfileType);
+      }
+    } catch (_) {}
+  }, []);
+
+  const handleSelectProfile = (newProfile: ProfileType) => {
+    setProfile(newProfile);
+    try {
+      localStorage.setItem('vialibre_profile', newProfile);
+    } catch (_) {}
+  };
 
   // Explorar & Búsqueda
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +114,7 @@ export default function ViaLibreOfficialApp() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const assessFileInputRef = useRef<HTMLInputElement>(null);
 
   // Búsqueda y Rutas
   const launchMapSearch = (query?: string) => {
@@ -117,13 +139,22 @@ export default function ViaLibreOfficialApp() {
         }),
       });
       const data = await res.json();
+      const rawSteps = data.route?.steps || data.routes?.[0]?.steps || [];
+      const formattedSteps = rawSteps.length > 0
+        ? rawSteps.map((s: any) => ({
+            text: s.instruction || s.text || 'Avanza hacia tu destino.',
+            slope: s.slope || '2%',
+            elevator: s.elevator || false,
+            status: s.stepMode || 'Accesible',
+          }))
+        : [
+            { text: 'Avanza 120m por banqueta accesible con guía podotáctil.', slope: '2%' },
+            { text: 'Usa el cruce semaforizado con rampa en esquina Morelos.', elevator: true },
+            { text: 'Aborda la estación con elevador activo a nivel de calle.', status: 'Verificado' },
+          ];
       setRouteResult({
         destination: destQuery,
-        steps: data.steps || [
-          { text: 'Avanza 120m por banqueta accesible con guía podotáctil.', slope: '2%' },
-          { text: 'Usa el cruce semaforizado con rampa en esquina Morelos.', elevator: true },
-          { text: 'Aborda la estación con elevador activo a nivel de calle.', status: 'Verificado' },
-        ],
+        steps: formattedSteps,
       });
     } catch {
       setRouteResult({
@@ -154,19 +185,58 @@ export default function ViaLibreOfficialApp() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            mediaBase64: base64,
+            imageBase64: base64,
             mimeType: file.type || 'image/jpeg',
             profile,
           }),
         });
         const data = await analyzeRes.json();
-        if (data.data?.description && !reportNote) {
-          setReportNote(data.data.description);
+        const detectedDesc = data.description || data.title || data.data?.description;
+        if (detectedDesc && !reportNote) {
+          setReportNote(detectedDesc);
         }
       } catch (err) {
         console.error('Error analizando imagen:', err);
       } finally {
         setAnalyzingImage(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAssessPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const res = reader.result as string;
+      setAssessImagePreview(res);
+      const base64 = res.split(',')[1] || '';
+      setEvaluatingPhoto(true);
+      setShowAssessModal(true);
+      try {
+        const assessRes = await fetch('/api/places/assess-photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: base64,
+            mimeType: file.type || 'image/jpeg',
+            profile,
+          }),
+        });
+        const data = await assessRes.json();
+        setAssessResult(data.assessment || data);
+      } catch (err) {
+        console.error('Error evaluando espacio:', err);
+        setAssessResult({
+          verdict: 'caution',
+          verdictLabel: 'Verificación visual requerida',
+          summary: 'No se pudo contactar al evaluador de IA; verifica rampas y escalones directamente.',
+          featuresDetected: ['Foto cargada'],
+          recommendation: 'Revisa si la entrada cuenta con rampa o elevador antes de acceder.',
+        });
+      } finally {
+        setEvaluatingPhoto(false);
       }
     };
     reader.readAsDataURL(file);
@@ -233,17 +303,16 @@ export default function ViaLibreOfficialApp() {
         body: JSON.stringify({ textContent: noticeInput, title: 'Aviso oficial' }),
       });
       const data = await res.json();
-      if (data.data) {
-        setActiveNotice({
-          issuer: 'Gobierno de la Ciudad de México',
-          title: data.data.title || 'Aviso en Lenguaje Claro',
-          whatHappened: data.data.whatHappened || noticeInput,
-          whoIsAffected: data.data.whoIsAffected || 'Usuarios de la zona',
-          actionToday: data.data.actionToday || 'Usa vías alternas accesibles.',
-          estimatedDuration: 'Hoy',
-        });
-        setNoticeInput('');
-      }
+      const summary = data.plainSummary || data;
+      setActiveNotice({
+        issuer: data.issuer || summary.issuer || 'Gobierno de la Ciudad de México',
+        title: summary.title || 'Aviso en Lenguaje Claro',
+        whatHappened: data.whatHappened || summary.whatHappened || noticeInput,
+        whoIsAffected: data.whoIsAffected || summary.whoIsAffected || 'Usuarios de la zona',
+        actionToday: data.whatToDoToday || data.actionToday || summary.whatToDoToday || 'Usa vías alternas accesibles.',
+        estimatedDuration: data.estimatedDuration || summary.estimatedDuration || 'Hoy',
+      });
+      setNoticeInput('');
     } catch {
       setActiveNotice({
         issuer: 'Movilidad Urbana',
@@ -281,7 +350,7 @@ export default function ViaLibreOfficialApp() {
     { label: 'Metro', emoji: '🚇', action: () => launchMapSearch('Estación Metro accesible') },
     { label: 'Metrobús', emoji: '🚌', action: () => launchMapSearch('Estación Metrobús accesible') },
     { label: 'Bus / Combi', emoji: '🚐', action: () => launchMapSearch('Parada camión o combi') },
-    { label: 'Evaluar foto', emoji: '⛶', action: () => setActiveTab('report') },
+    { label: 'Evaluar foto', emoji: '⛶', action: () => assessFileInputRef.current?.click() },
     { label: 'Rampas', emoji: '♿', action: () => launchMapSearch('Acceso con rampa') },
     { label: 'Primera vez', emoji: '🧭', action: () => setShowFirstTimerModal(true) },
     { label: 'Reportar', emoji: '🔔', action: () => setActiveTab('report') },
@@ -1925,7 +1994,7 @@ export default function ViaLibreOfficialApp() {
                   <div
                     key={pItem.id}
                     onClick={() => {
-                      setProfile(pItem.id as ProfileType);
+                      handleSelectProfile(pItem.id as ProfileType);
                       setShowProfileModal(false);
                     }}
                     style={{
@@ -2123,6 +2192,181 @@ export default function ViaLibreOfficialApp() {
               }}
             >
               Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Input oculto para Evaluación Visual de Accesibilidad */}
+      <input
+        ref={assessFileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleAssessPhotoSelect}
+        style={{ display: 'none' }}
+      />
+
+      {/* ======================================================== */}
+      {/* MODAL: EVALUADOR VISUAL "¿PUEDO ENTRAR AQUÍ?" */}
+      {/* ======================================================== */}
+      {showAssessModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: '16px',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => setShowAssessModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: PALETTE.card,
+              border: '1px solid ' + PALETTE.border,
+              borderRadius: '28px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '380px',
+              color: PALETTE.ink,
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: PALETTE.coral,
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px',
+                }}
+              >
+                ⛶
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>¿Puedo entrar aquí?</h3>
+                <div style={{ fontSize: '12px', color: PALETTE.muted }}>Evaluador Visual con Gemini</div>
+              </div>
+            </div>
+
+            {assessImagePreview && (
+              <div style={{ margin: '14px 0', borderRadius: '16px', overflow: 'hidden', maxHeight: '180px' }}>
+                <img
+                  src={assessImagePreview}
+                  alt="Acceso evaluado"
+                  style={{ width: '100%', height: '180px', objectFit: 'cover' }}
+                />
+              </div>
+            )}
+
+            {evaluatingPhoto ? (
+              <div style={{ padding: '24px 0', textAlign: 'center', color: PALETTE.muted, fontSize: '14px' }}>
+                <div style={{ fontSize: '24px', marginBottom: '8px' }}>⏳</div>
+                Analizando pendientes, escalones y ancho de acceso...
+              </div>
+            ) : assessResult ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '16px',
+                    backgroundColor:
+                      assessResult.verdict === 'accessible'
+                        ? PALETTE.mintSoft
+                        : assessResult.verdict === 'inaccessible'
+                        ? PALETTE.alertRedSoft
+                        : PALETTE.amberSoft,
+                    border:
+                      '1px solid ' +
+                      (assessResult.verdict === 'accessible'
+                        ? PALETTE.mintInk
+                        : assessResult.verdict === 'inaccessible'
+                        ? PALETTE.alertRed
+                        : PALETTE.amberInk),
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      fontSize: '14px',
+                      color:
+                        assessResult.verdict === 'accessible'
+                          ? PALETTE.mintInk
+                          : assessResult.verdict === 'inaccessible'
+                          ? PALETTE.alertRed
+                          : PALETTE.amberInk,
+                    }}
+                  >
+                    {assessResult.verdictLabel || (assessResult.verdict === 'accessible' ? 'Acceso Accesible' : 'Precaución')}
+                  </div>
+                  <div style={{ fontSize: '13px', marginTop: '4px', lineHeight: 1.4 }}>
+                    {assessResult.summary}
+                  </div>
+                </div>
+
+                {assessResult.recommendation && (
+                  <div
+                    style={{
+                      padding: '12px',
+                      backgroundColor: PALETTE.sand,
+                      borderRadius: '14px',
+                      fontSize: '13px',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: PALETTE.coral }}>Recomendación: </span>
+                    {assessResult.recommendation}
+                  </div>
+                )}
+
+                {assessResult.featuresDetected && assessResult.featuresDetected.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {assessResult.featuresDetected.map((feat: string, i: number) => (
+                      <span
+                        key={i}
+                        style={{
+                          fontSize: '11.5px',
+                          padding: '4px 8px',
+                          borderRadius: '8px',
+                          backgroundColor: PALETTE.sand,
+                          color: PALETTE.muted,
+                        }}
+                      >
+                        ✓ {feat}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            <button
+              onClick={() => setShowAssessModal(false)}
+              style={{
+                width: '100%',
+                marginTop: '18px',
+                backgroundColor: PALETTE.ctaBg,
+                color: PALETTE.ctaFg,
+                border: 'none',
+                borderRadius: '20px',
+                padding: '12px',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              Cerrar
             </button>
           </div>
         </div>

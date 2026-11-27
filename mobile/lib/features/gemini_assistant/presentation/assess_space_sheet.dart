@@ -32,8 +32,66 @@ class _AssessSpaceSheetState extends ConsumerState<AssessSpaceSheet> {
 
   Future<void> _takePhotoAndAssess() async {
     try {
+      final source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          final p = ViaLibreTheme.paletteOf(context);
+          return Container(
+            decoration: BoxDecoration(
+              color: p.card,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: p.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Evaluar accesibilidad de espacio',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: p.ink,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ListTile(
+                  leading: Icon(Icons.camera_alt_rounded, color: p.coral),
+                  title: Text(
+                    'Tomar foto con la cámara',
+                    style: TextStyle(color: p.ink, fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+                ListTile(
+                  leading: Icon(Icons.photo_library_rounded, color: p.coral),
+                  title: Text(
+                    'Elegir de la galería',
+                    style: TextStyle(color: p.ink, fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      if (source == null) return;
+
       final picked = await _picker.pickImage(
-        source: ImageSource.camera,
+        source: source,
         preferredCameraDevice: CameraDevice.rear,
       );
       if (picked == null) return;

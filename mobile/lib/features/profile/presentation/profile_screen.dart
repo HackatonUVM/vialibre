@@ -278,6 +278,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         .read(profileControllerProvider.notifier)
                         .toggleHighContrast(v),
                   ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    activeColor: p.coral,
+                    title: const Text(
+                      'Texto ampliado (+22%)',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: const Text(
+                      'Aumenta el tamaño de la tipografía en toda la interfaz.',
+                    ),
+                    value: prefs.largeText,
+                    onChanged: (v) => ref
+                        .read(profileControllerProvider.notifier)
+                        .toggleLargeText(v),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    title: const Text(
+                      'Velocidad de voz (TTS)',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: const Text(
+                      'Rapidez de lectura de pasos y avisos en voz alta.',
+                    ),
+                    trailing: SegmentedButton<double>(
+                      segments: const [
+                        ButtonSegment(value: 1.0, label: Text('1.0x')),
+                        ButtonSegment(value: 1.25, label: Text('1.25x')),
+                      ],
+                      selected: {prefs.ttsSpeed >= 1.2 ? 1.25 : 1.0},
+                      onSelectionChanged: (vals) {
+                        ref
+                            .read(profileControllerProvider.notifier)
+                            .setTtsSpeed(vals.first);
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),

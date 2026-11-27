@@ -189,6 +189,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     } catch (_) {}
   }
 
+  Future<void> _locateMe() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition();
+      final target = LatLng(pos.latitude, pos.longitude);
+      final ctrl = await _mapController.future;
+      await ctrl.animateCamera(CameraUpdate.newLatLngZoom(target, 16));
+      setState(() {
+        _currentCenter = target;
+        _hasLocationPermission = true;
+        _statusMessage = 'Ubicación centrada';
+      });
+      await _refreshNearbyBarriers();
+    } catch (_) {
+      setState(() {
+        _statusMessage = 'Activa los permisos de ubicación para centrar el mapa.';
+      });
+    }
+  }
+
   Future<void> _searchRoutes([String? overrideQuery]) async {
     final query = (overrideQuery ?? _searchController.text).trim();
     if (query.isEmpty) {
@@ -696,6 +715,38 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: p.card.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: p.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.shield_outlined,
+                          color: p.coral,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Herramienta asistiva; no sustituye bastón blanco, perro guía ni señalización vial.',
+                            style: TextStyle(
+                              color: p.muted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   if (_betaWarning != null) ...[
                     const SizedBox(height: 10),
                     Semantics(
@@ -776,6 +827,44 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ],
                 ],
               ),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: _selectedRoute != null ? 240 : 110,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Semantics(
+                  button: true,
+                  label: 'Actualizar barreras reportadas cerca',
+                  child: FloatingActionButton.small(
+                    heroTag: 'fab_refresh_barriers',
+                    backgroundColor: p.card,
+                    foregroundColor: p.ink,
+                    onPressed: () async {
+                      setState(() => _statusMessage = 'Actualizando barreras...');
+                      await _refreshNearbyBarriers();
+                      if (mounted) {
+                        setState(() => _statusMessage = '${_barriers.length} barreras reportadas cerca');
+                      }
+                    },
+                    child: const Icon(Icons.refresh_rounded),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Semantics(
+                  button: true,
+                  label: 'Mi ubicación actual',
+                  child: FloatingActionButton.small(
+                    heroTag: 'fab_my_location',
+                    backgroundColor: p.card,
+                    foregroundColor: p.coral,
+                    onPressed: _locateMe,
+                    child: const Icon(Icons.my_location_rounded),
+                  ),
+                ),
+              ],
             ),
           ),
           if (_selectedRoute != null)

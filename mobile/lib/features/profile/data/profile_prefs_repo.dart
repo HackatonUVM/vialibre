@@ -256,6 +256,18 @@ class ProfileController extends AsyncNotifier<ProfilePrefs> {
     await _update(current.copyWith(avoidSlopes: enabled));
   }
 
+  Future<void> toggleLargeText(bool enabled) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    await _update(current.copyWith(largeText: enabled));
+  }
+
+  Future<void> setTtsSpeed(double speed) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    await _update(current.copyWith(ttsSpeed: speed));
+  }
+
   Future<void> setThemeMode(ThemeMode mode) async {
     final current = state.valueOrNull ??
         const ProfilePrefs(

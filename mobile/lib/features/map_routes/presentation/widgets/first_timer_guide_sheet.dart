@@ -86,6 +86,32 @@ class FirstTimerGuideSheet extends StatelessWidget {
                 'Guía paso a paso en lenguaje claro para viajar con seguridad.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: p.sand,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: p.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.shield_outlined, color: p.coral, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Aviso de seguridad asistiva: Esta app es una herramienta de apoyo digital y no sustituye el uso del bastón blanco, perro guía ni la señalización vial oficial.',
+                        style: TextStyle(
+                          color: p.muted,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
               AudioPlayerBar(
                 title: 'Escuchar guía paso a paso',

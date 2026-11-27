@@ -12,7 +12,10 @@ export async function GET() {
     integrations: {
       supabase: Boolean(process.env.SUPABASE_URL),
       gemini: Boolean(process.env.GOOGLE_API_KEY),
-      googleMaps: Boolean(process.env.GOOGLE_MAPS_SERVER_KEY || process.env.GOOGLE_API_KEY),
+      openRouting: true,
+      elevation: true,
+      places: true,
+      openRouteService: Boolean(process.env.ORS_API_KEY),
     },
     version: '1.0.0',
   });

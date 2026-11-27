@@ -13,6 +13,8 @@ import 'package:vialibre/core/widgets/screen_header.dart';
 import 'package:vialibre/core/widgets/tactile_press.dart';
 import 'package:vialibre/features/profile/data/profile_prefs_repo.dart';
 import '../data/report_repo.dart';
+import '../../map_routes/data/barriers_realtime_repo.dart';
+import '../../map_routes/domain/barrier_model.dart';
 import 'bounding_box_overlay.dart';
 import 'pending_queue_banner.dart';
 
@@ -44,10 +46,227 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
     super.dispose();
   }
 
-  Future<void> _capturePhoto() async {
+  Future<void> _promptPhotoSource() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final p = ViaLibreTheme.paletteOf(context);
+        return Container(
+          decoration: BoxDecoration(
+            color: p.card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: p.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Subir foto de la barrera',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: p.ink,
+                ),
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                leading: Icon(Icons.camera_alt_rounded, color: p.coral),
+                title: Text(
+                  'Tomar foto con cámara',
+                  style: TextStyle(color: p.ink, fontWeight: FontWeight.w600),
+                ),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: Icon(Icons.photo_library_rounded, color: p.coral),
+                title: Text(
+                  'Elegir de la galería',
+                  style: TextStyle(color: p.ink, fontWeight: FontWeight.w600),
+                ),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (source != null) {
+      await _capturePhoto(source);
+    }
+  }
+
+  void _discardPhoto() {
+    setState(() {
+      _sanitizedPhoto = null;
+      _analysis = null;
+      _feedbackMessage = 'Foto descartada.';
+      _feedbackIsError = false;
+    });
+  }
+
+  void _discardVoice() {
+    setState(() {
+      _voicePath = null;
+      _recording = false;
+      _feedbackMessage = 'Nota de voz eliminada.';
+      _feedbackIsError = false;
+    });
+  }
+
+  Future<void> _openMyReportsSheet() async {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final p = ViaLibreTheme.paletteOf(context);
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          builder: (context, scrollCtrl) {
+            return Container(
+              decoration: BoxDecoration(
+                color: p.card,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: p.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Icon(Icons.history_rounded, color: p.coral),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Historial de mis reportes',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: p.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: FutureBuilder<List<BarrierPin>>(
+                      future: ref.read(barriersRealtimeRepoProvider).fetchMine(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        final list = snapshot.data ?? const [];
+                        if (list.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'Aún no tienes reportes enviados.',
+                              style: TextStyle(color: p.muted),
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          controller: scrollCtrl,
+                          itemCount: list.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final b = list[index];
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: p.sand,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: p.border),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    b.category == 'ramp'
+                                        ? Icons.accessible_rounded
+                                        : Icons.construction_rounded,
+                                    color: p.coral,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          b.title,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: p.ink,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Confirmaciones: ${b.confirmations}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: p.muted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: p.card,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      b.statusLabel,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: p.ink,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _capturePhoto([ImageSource source = ImageSource.camera]) async {
     try {
       final picked = await _picker.pickImage(
-        source: ImageSource.camera,
+        source: source,
         preferredCameraDevice: CameraDevice.rear,
       );
       if (picked == null) return;
@@ -223,16 +442,32 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
           ),
           const SizedBox(height: 18),
           const PendingQueueBanner(),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _openMyReportsSheet,
+              icon: Icon(Icons.history_rounded, size: 18, color: p.coral),
+              label: Text(
+                'Mis reportes enviados',
+                style: TextStyle(
+                  color: p.coral,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
                 child: _CaptureMethodCard(
                   icon: Icons.camera_alt_rounded,
-                  title: 'Tomar foto',
-                  subtitle: 'Visión IA + EXIF cero',
+                  title: 'Subir foto',
+                  subtitle: 'Cámara o Galería + IA',
                   accentBg: p.lavender,
                   accentFg: p.lavenderInk,
-                  onTap: _analyzing ? null : _capturePhoto,
+                  onTap: _analyzing ? null : _promptPhotoSource,
                 ),
               ),
               const SizedBox(width: 12),
@@ -251,6 +486,38 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          if (_voicePath != null) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: p.sand,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: p.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.mic_rounded, color: p.coral, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Nota de voz lista para transcripción con Gemini',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: p.ink,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete_outline_rounded, color: p.muted, size: 20),
+                    tooltip: 'Descartar nota de voz',
+                    onPressed: _discardVoice,
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (_analyzing)
             const Card(
               child: Padding(
@@ -283,6 +550,27 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                     ),
                     if (_analysis != null)
                       BoundingBoxOverlay(boxes: _analysis!.boundingBoxes),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Semantics(
+                        button: true,
+                        label: 'Descartar foto',
+                        child: Material(
+                          color: Colors.black54,
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                            tooltip: 'Descartar foto',
+                            onPressed: _discardPhoto,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

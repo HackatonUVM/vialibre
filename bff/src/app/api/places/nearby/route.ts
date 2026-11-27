@@ -1,69 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { searchPlacesWithAccessibility } from '@/lib/apis/open-maps';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { lat = 19.4326, lng = -99.1332 } = body;
+    const lat = body.lat ?? body.latitude ?? 19.4326;
+    const lng = body.lng ?? body.longitude ?? -99.1332;
+    const query = body.query || body.search || '';
+    const radiusMeters = body.radiusMeters || body.radius || 1000;
 
-    const places = [
-      {
-        placeId: 'metro_insurgentes_l1',
-        name: 'Estación Insurgentes (Línea 1)',
-        address: 'Glorieta de Insurgentes, Roma Norte, CDMX',
-        lat: lat + 0.0012,
-        lng: lng - 0.0015,
-        wheelchairAccessibleEntrance: true,
-        wheelchairAccessibleRestroom: true,
-        wheelchairAccessibleParking: false,
-        wheelchairAccessibleSeating: true,
-        accessibilityOptions: {
-          wheelchairAccessibleEntrance: true,
-          wheelchairAccessibleRestroom: true,
-          wheelchairAccessibleParking: false,
-          wheelchairAccessibleSeating: true,
-        },
-      },
-      {
-        placeId: 'metro_juarez_l3',
-        name: 'Estación Juárez (Línea 3)',
-        address: 'Balderas y Artículo 123, Centro Histórico, CDMX',
-        lat: lat - 0.0018,
-        lng: lng + 0.0022,
-        wheelchairAccessibleEntrance: true,
-        wheelchairAccessibleRestroom: false,
-        wheelchairAccessibleParking: false,
-        wheelchairAccessibleSeating: true,
-        accessibilityOptions: {
-          wheelchairAccessibleEntrance: true,
-          wheelchairAccessibleRestroom: false,
-          wheelchairAccessibleParking: false,
-          wheelchairAccessibleSeating: true,
-        },
-      },
-      {
-        placeId: 'clinica_accesible_1',
-        name: 'Clínica de Especialidades y Accesibilidad CDMX',
-        address: 'Dr. Márquez 162, Doctores, CDMX',
-        lat: lat + 0.0025,
-        lng: lng + 0.0018,
-        wheelchairAccessibleEntrance: true,
-        wheelchairAccessibleRestroom: true,
-        wheelchairAccessibleParking: true,
-        wheelchairAccessibleSeating: true,
-        accessibilityOptions: {
-          wheelchairAccessibleEntrance: true,
-          wheelchairAccessibleRestroom: true,
-          wheelchairAccessibleParking: true,
-          wheelchairAccessibleSeating: true,
-        },
-      },
-    ];
+    // Búsqueda de lugares y accesibilidad vía Photon (Komoot) + Nominatim
+    const places = await searchPlacesWithAccessibility({
+      lat,
+      lng,
+      query,
+      radiusMeters,
+    });
+
+    // Barreras urbanas reportadas cercanas desde Supabase PostGIS
+    let barriers: any[] = [];
+    try {
+      const { data, error } = await supabaseAdmin.rpc('get_nearby_barriers', {
+        p_lat: lat,
+        p_lng: lng,
+        p_radius_meters: radiusMeters,
+      });
+
+      if (!error && Array.isArray(data)) {
+        barriers = data;
+      }
+    } catch (_) {}
 
     return NextResponse.json({
+      success: true,
       places,
-      barriers: [],
+      barriers,
+      nearbyBarriers: barriers,
     });
   } catch (err: any) {
+    console.error('Error buscando lugares accesibles:', err);
     return NextResponse.json({ error: 'Error buscando lugares accesibles' }, { status: 500 });
   }
 }

@@ -1,0 +1,24 @@
+{
+  "name": "VíaLibre — Movilidad Accesible",
+  "short_name": "VíaLibre",
+  "description": "Navegación peatonal accesible, reporte ciudadano de barreras y avisos en Lenguaje Claro",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#141416",
+  "theme_color": "#141416",
+  "icons": [
+    {
+      "src": "/logo_dark.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo_dark.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

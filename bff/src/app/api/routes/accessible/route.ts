@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { computeAccessibleRoute } from '@/lib/maps';
+import { computeWalkOrTransitRoutes } from '@/lib/apis/open-maps';
+import { decodeEncodedPolyline, toLineStringWKT } from '@/lib/geo/polyline';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
 
     const origin = {
       latitude: body.origin?.lat ?? body.origin?.latitude ?? 19.4326,
@@ -17,56 +19,43 @@ export async function POST(req: NextRequest) {
     };
 
     const profile = body.profile || 'general';
-    const computed = await computeAccessibleRoute(origin, destination, profile);
+    const avoidSlopes = body.avoidSlopes !== undefined ? Boolean(body.avoidSlopes) : true;
+    const maxSlopePercent = typeof body.maxSlopePercent === 'number' ? body.maxSlopePercent : 8.0;
+    const modes = Array.isArray(body.modes) ? body.modes : ['WALK'];
+    const includeFirstTimerGuide = body.includeFirstTimerGuide !== undefined ? Boolean(body.includeFirstTimerGuide) : true;
 
-    // Formatear para compatibilidad con TransitRouteOption (Mobile Flutter) y AccessibleRouteResult (Web PWA)
-    const mobileRoute = {
-      id: 'route_transit_0',
-      mode: 'TRANSIT',
-      summaryLabel: 'Metrobús L1 + Ruta Peatonal Accesible',
-      durationSeconds: computed.durationSeconds || 720,
-      distanceMeters: computed.distanceMeters || 650,
-      maxSlopePercent: 2.1,
-      steepSegmentsCount: 0,
-      encodedPolyline: computed.polyline,
-      recommendationReason: profile === 'wheelchair'
-        ? 'Ruta 100% libre de escalones con elevadores operativos y rampas suaves.'
-        : 'Ruta peatonal con banquetas amplias y semáforos audibles.',
-      steps: computed.steps.map((s, idx) => ({
-        stepMode: idx === 1 ? 'TRANSIT' : 'WALK',
-        instruction: s.instruction,
-        distanceMeters: s.distanceMeters,
-        durationSeconds: s.durationSeconds,
-        lineName: idx === 1 ? 'Metrobús L1' : undefined,
-        vehicleType: idx === 1 ? 'BUS' : 'WALK',
-        departureStop: idx === 1 ? 'Estación Glorieta Insurgentes' : undefined,
-        arrivalStop: idx === 1 ? 'Estación Hamburgo' : undefined,
-        numStops: idx === 1 ? 2 : undefined,
-      })),
-      barriersOnRoute: [],
-      firstTimerGuide: {
-        checklistBeforeBoarding: [
-          'Verifica que tu tarjeta de Movilidad Integrada tenga saldo.',
-          'Ubica la zona con pictograma azul accesible en el andén.',
-          'Espera a que el operador despliegue la rampa si el autobús no está a nivel.',
-        ],
-        stepByStep: [
-          {
-            stepNumber: 1,
-            title: 'Acceso a estación',
-            plainInstruction: 'Ingresa por la rampa ubicada al costado sur del andén.',
-            accessibilityTip: 'El piso cuenta con franjas táctiles de advertencia.',
-          },
-          {
-            stepNumber: 2,
-            title: 'Abordaje accesible',
-            plainInstruction: 'Espera en la primera puerta señalizada con símbolo internacional de accesibilidad.',
-            accessibilityTip: 'El autobús cuenta con espacio reservado y cinturón de fijación.',
-          },
-        ],
-        spokenSummaryText: 'Para esta ruta, dirígete a la estación por la rampa sur y aborda en la primera puerta accesible.',
-      },
-    };
+    // Cálculo con el adaptador gratuito de OpenStreetMap (Valhalla / OSRM / ORS + Open-Meteo)
+    const { routes, provider, betaWarning } = await computeWalkOrTransitRoutes({
+      origin,
+      destination,
+      profile,
+      avoidSlopes,
+      maxSlopePercent,
+      modes,
+      includeFirstTimerGuide,
+      destinationQuery: destQuery,
+    });
+
+    const primaryRoute = routes[0];
+
+    // Intersección geoespacial PostGIS con barreras activas a lo largo de la ruta
+    try {
+      const routePoints = decodeEncodedPolyline(primaryRoute.encodedPolyline, 5);
+      const lineStringWkt = toLineStringWKT(routePoints);
+
+      const { data, error } = await supabaseAdmin.rpc('find_barriers_along_route', {
+        p_route_wkt: lineStringWkt,
+        p_buffer_meters: 25.0,
+        p_profile: profile,
+      });
+
+      if (!error && Array.isArray(data)) {
+        primaryRoute.barriersOnRoute = data;
+      }
+    } catch (rpcErr) {
+      // Degradar con lista vacía si PostGIS no está disponible
+      primaryRoute.barriersOnRoute = [];
+    }
 
     const resolvedDestination = {
       placeId: 'dest_resolved_poi',
@@ -84,11 +73,14 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      route: computed,
-      routes: [mobileRoute],
+      routes,
+      route: primaryRoute,
+      routeProvider: provider,
       resolvedDestination,
-      firstTimerGuide: mobileRoute.firstTimerGuide,
-      betaWarning: null,
+      firstTimerGuide: primaryRoute.firstTimerGuide,
+      firstTimerSummary: primaryRoute.firstTimerGuide?.spokenSummaryText,
+      firstTimerSteps: primaryRoute.firstTimerGuide?.checklistBeforeBoarding,
+      betaWarning,
       profile,
     });
   } catch (err: any) {
