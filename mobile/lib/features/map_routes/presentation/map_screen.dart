@@ -508,9 +508,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
               cloudMapId: hasMapId ? Env.googleMapsMapId : null,
               style: (!hasMapId && p.isDark) ? _darkMapStyle : null,
-              markerType: hasMapId
-                  ? GoogleMapMarkerType.advancedMarker
-                  : GoogleMapMarkerType.marker,
+
               padding: const EdgeInsets.only(top: 132, bottom: 96),
               myLocationEnabled: _hasLocationPermission,
               myLocationButtonEnabled: _hasLocationPermission,
