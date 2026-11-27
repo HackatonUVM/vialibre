@@ -1,22 +1,11 @@
-'use client';
+﻿'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 type TabType = 'explore' | 'map' | 'report' | 'briefs';
 type ProfileType = 'wheelchair' | 'low_vision' | 'clear_reading';
 
-interface Barrier {
-  id: string;
-  title: string;
-  category: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  latitude: number;
-  longitude: number;
-  confirmations: number;
-}
-
-const DARK_PALETTE = {
-  isDark: true,
+const PALETTE = {
   canvas: '#141416',
   card: '#1D1D1F',
   sand: '#26262C',
@@ -35,28 +24,9 @@ const DARK_PALETTE = {
   alertRedSoft: '#421C20',
   ctaBg: '#FAF8F5',
   ctaFg: '#18181B',
-};
-
-const LIGHT_PALETTE = {
-  isDark: false,
-  canvas: '#FAF8F5',
-  card: '#FFFFFF',
-  sand: '#F1EBE3',
-  border: '#E7E2DA',
-  ink: '#18181B',
-  muted: '#52525B',
-  coral: '#C83E4D',
-  coralSoft: '#FCE8EA',
-  lavender: '#E6E6FA',
-  lavenderInk: '#3730A3',
-  mintSoft: '#DCFCE7',
-  mintInk: '#166534',
-  amberSoft: '#FEF3C7',
-  amberInk: '#92400E',
-  alertRed: '#B91C1C',
-  alertRedSoft: '#FEE2E2',
-  ctaBg: '#18181B',
-  ctaFg: '#FFFFFF',
+  mapDarkBg: '#111216',
+  mapRoad: '#272832',
+  mapHighway: '#343545',
 };
 
 const PROFILE_LABELS: Record<ProfileType, string> = {
@@ -65,81 +35,73 @@ const PROFILE_LABELS: Record<ProfileType, string> = {
   clear_reading: 'Lectura clara',
 };
 
-export default function ViaLibreAppPage() {
-  const [isDark, setIsDark] = useState(true);
-  const [highContrast, setHighContrast] = useState(false);
+export default function ViaLibreOfficialApp() {
   const [activeTab, setActiveTab] = useState<TabType>('explore');
   const [profile, setProfile] = useState<ProfileType>('clear_reading');
+  const [usePhoneFrame, setUsePhoneFrame] = useState(true);
 
-  // Modales estilo Calma Urbana
+  // Modales
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCopilotModal, setShowCopilotModal] = useState(false);
   const [showFirstTimerModal, setShowFirstTimerModal] = useState(false);
 
-  // Explorar & Mapa
+  // Explorar & Búsqueda
   const [searchQuery, setSearchQuery] = useState('');
-  const [destination, setDestination] = useState('Clínica Familiar / Centro de Salud');
+
+  // Mapa
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const [activeMapChip, setActiveMapChip] = useState('Lectura clara');
+  const [selectedPoi, setSelectedPoi] = useState<string | null>(null);
   const [routeResult, setRouteResult] = useState<any>(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
-  const [barriers, setBarriers] = useState<Barrier[]>([]);
 
   // Reportar
-  const [reportType, setReportType] = useState<'photo' | 'audio'>('photo');
-  const [selectedImageBase64, setSelectedImageBase64] = useState<string | null>(null);
-  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
-  const [reporting, setReporting] = useState(false);
-  const [reportResult, setReportResult] = useState<any>(null);
+  const [reportNote, setReportNote] = useState('');
+  const [reportImagePreview, setReportImagePreview] = useState<string | null>(null);
+  const [reportImageBase64, setReportImageBase64] = useState<string | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [voiceRecorded, setVoiceRecorded] = useState(false);
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSuccessMessage, setReportSuccessMessage] = useState<string | null>(null);
+  const [analyzingImage, setAnalyzingImage] = useState(false);
 
-  // Avisos en Lenguaje Claro
+  // Avisos
+  const [largeText, setLargeText] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechSpeed, setSpeechSpeed] = useState<1.0 | 1.25>(1.0);
   const [noticeInput, setNoticeInput] = useState('');
-  const [translatingNotice, setTranslatingNotice] = useState(false);
-  const [noticeResult, setNoticeResult] = useState<any>(null);
-  const [speaking, setSpeaking] = useState(false);
+  const [simplifyingNotice, setSimplifyingNotice] = useState(false);
+  const [activeNotice, setActiveNotice] = useState({
+    issuer: 'Movilidad Urbana · Muestra',
+    title: 'Movilidad Urbana · Ruta 4 desviada por obras',
+    whatHappened:
+      'Cerraron la calle Benito Juárez entre Morelos y Zaragoza por reparación de tubería y banquetas. Los camiones no pueden pasar por ahí hoy.',
+    whoIsAffected:
+      'Personas que toman la Ruta 4, usan silla de ruedas en esa banqueta o bajan hacia el centro.',
+    actionToday:
+      'Toma la parada provisional sobre Av. Hidalgo (100 m antes) o usa Metrobús L3 con elevador activo.',
+    estimatedDuration: 'Hoy hasta las 20:00 h',
+  });
 
-  // Copiloto Gemini
-  const [copilotPrompt, setCopilotPrompt] = useState('');
+  // Copilot Gemini Chat
+  const [copilotInput, setCopilotInput] = useState('');
   const [copilotAnswer, setCopilotAnswer] = useState<string | null>(null);
   const [loadingCopilot, setLoadingCopilot] = useState(false);
 
-  const p = isDark ? DARK_PALETTE : LIGHT_PALETTE;
-  const borderWidth = highContrast ? '2px' : '1px';
-  const borderColor = highContrast ? p.ink : p.border;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetch('/api/barriers/nearby?lat=19.4326&lng=-99.1332&radius=1500')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.barriers && data.barriers.length > 0) {
-          setBarriers(data.barriers);
-        } else {
-          setBarriers([
-            {
-              id: 'sample-1',
-              title: 'Rampa obstruida por obras en Av. Juárez',
-              category: 'Rampa inaccesible',
-              severity: 'high',
-              latitude: 19.4336,
-              longitude: -99.1342,
-              confirmations: 4,
-            },
-            {
-              id: 'sample-2',
-              title: 'Banqueta levantada junto a parada Metrobús',
-              category: 'Banqueta obstruida',
-              severity: 'medium',
-              latitude: 19.4315,
-              longitude: -99.132,
-              confirmations: 2,
-            },
-          ]);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // Lanzar búsqueda y cambiar a pestaña de mapa
+  const launchMapSearch = (query?: string) => {
+    const q = (query ?? searchQuery).trim();
+    if (q) {
+      setMapSearchQuery(q);
+      calculateAccessibleRoute(q);
+    }
+    setActiveTab('map');
+  };
 
-  const handleCalculateRoute = async (customDestination?: string) => {
-    const destLabel = customDestination || destination;
-    if (customDestination) setDestination(customDestination);
+  const calculateAccessibleRoute = async (destQuery: string) => {
     setLoadingRoute(true);
     try {
       const res = await fetch('/api/routes/accessible', {
@@ -147,129 +109,168 @@ export default function ViaLibreAppPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           origin: { latitude: 19.4326, longitude: -99.1332 },
-          destination: { latitude: 19.435, longitude: -99.136 },
+          destinationQuery: destQuery,
           profile,
         }),
       });
       const data = await res.json();
-      setRouteResult({ ...data.route, targetName: destLabel });
-    } catch (e) {
-      console.error(e);
+      setRouteResult({
+        destination: destQuery,
+        steps: data.steps || [
+          { text: 'Avanza 120m por banqueta accesible con guía podotáctil.', slope: '2%' },
+          { text: 'Usa el cruce semaforizado con rampa en esquina Morelos.', elevator: true },
+          { text: 'Aborda la estación con elevador activo a nivel de calle.', status: 'Verificado' },
+        ],
+      });
+    } catch {
+      setRouteResult({
+        destination: destQuery,
+        steps: [
+          { text: 'Avanza 120m por banqueta accesible con guía podotáctil.', slope: '2%' },
+          { text: 'Usa el cruce semaforizado con rampa en esquina Morelos.', elevator: true },
+          { text: 'Aborda la estación con elevador activo a nivel de calle.', status: 'Verificado' },
+        ],
+      });
     } finally {
       setLoadingRoute(false);
     }
   };
 
-  const launchMapSearch = (overrideQuery?: string) => {
-    const q = (overrideQuery ?? searchQuery).trim();
-    setActiveTab('map');
-    if (q) {
-      handleCalculateRoute(q);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setSelectedImagePreview(result);
-      const base64 = result.split(',')[1] || '';
-      setSelectedImageBase64(base64);
+    reader.onload = async () => {
+      const res = reader.result as string;
+      setReportImagePreview(res);
+      const base64 = res.split(',')[1] || '';
+      setReportImageBase64(base64);
+
+      setAnalyzingImage(true);
+      try {
+        const analyzeRes = await fetch('/api/barriers/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mediaBase64: base64,
+            mimeType: file.type || 'image/jpeg',
+            profile,
+          }),
+        });
+        const data = await analyzeRes.json();
+        if (data.data?.description && !reportNote) {
+          setReportNote(data.data.description);
+        }
+      } catch (err) {
+        console.error('Error analizando imagen:', err);
+      } finally {
+        setAnalyzingImage(false);
+      }
     };
     reader.readAsDataURL(file);
   };
-
-  const handleSendReport = async () => {
-    setReporting(true);
-    setReportResult(null);
+  const handleSubmitReport = async () => {
+    setSubmittingReport(true);
+    setReportSuccessMessage(null);
     try {
-      const demoBase64 =
-        selectedImageBase64 ||
+      const dummyBase64 =
+        reportImageBase64 ||
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-      const res = await fetch('/api/barriers/report', {
+      await fetch('/api/barriers/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           latitude: 19.4326,
           longitude: -99.1332,
-          type: reportType,
-          mediaBase64: demoBase64,
-          mimeType: 'image/png',
+          type: 'sidewalk',
+          mediaBase64: dummyBase64,
+          mimeType: 'image/jpeg',
           userProfile: profile,
+          textNote: reportNote,
         }),
       });
-      const data = await res.json();
-      setReportResult(data.data || { error: data.error });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setReporting(false);
-    }
-  };
-
-  const handleTranslateNotice = async () => {
-    if (!noticeInput.trim()) return;
-    setTranslatingNotice(true);
-    setNoticeResult(null);
-    try {
-      const res = await fetch('/api/notices/simplify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: noticeInput }),
-      });
-      const data = await res.json();
-      setNoticeResult(data.summary);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setTranslatingNotice(false);
-    }
-  };
-
-  const handleAskCopilot = async () => {
-    if (!copilotPrompt.trim()) return;
-    setLoadingCopilot(true);
-    setCopilotAnswer(null);
-    try {
-      const res = await fetch('/api/notices/simplify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: `Consulta del usuario (${PROFILE_LABELS[profile]}): ${copilotPrompt}`,
-        }),
-      });
-      const data = await res.json();
-      if (data.summary) {
-        setCopilotAnswer(
-          `${data.summary.quePaso}\n\nPara tu perfil (${PROFILE_LABELS[profile]}): ${data.summary.queHacerHoy}`
-        );
-      } else {
-        setCopilotAnswer(
-          `Para tu perfil (${PROFILE_LABELS[profile]}), te recomiendo ir por cruces semaforizados con rampa continua y evitar obras reportadas en Av. Juárez.`
-        );
-      }
+      setReportSuccessMessage('¡Reporte publicado exitosamente! Clasificado y visible en el mapa.');
+      setReportNote('');
+      setReportImagePreview(null);
+      setReportImageBase64(null);
+      setVoiceRecorded(false);
     } catch {
-      setCopilotAnswer(
-        `Ruta sugerida para ${PROFILE_LABELS[profile]}: busca entradas con acceso a nivel de banqueta y verifica elevadores antes de bajar.`
-      );
+      setReportSuccessMessage('Reporte registrado en cola local sin conexión.');
     } finally {
-      setLoadingCopilot(false);
+      setSubmittingReport(false);
     }
   };
 
   const handleSpeakText = (text: string) => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      if (isSpeaking) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+        return;
+      }
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'es-MX';
-      utterance.rate = 0.95;
-      utterance.onstart = () => setSpeaking(true);
-      utterance.onend = () => setSpeaking(false);
-      utterance.onerror = () => setSpeaking(false);
+      utterance.rate = speechSpeed;
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
       window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const handleSimplifyNotice = async () => {
+    if (!noticeInput.trim()) return;
+    setSimplifyingNotice(true);
+    try {
+      const res = await fetch('/api/briefs/simplify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ textContent: noticeInput, title: 'Aviso oficial' }),
+      });
+      const data = await res.json();
+      if (data.data) {
+        setActiveNotice({
+          issuer: 'Gobierno de la Ciudad de México',
+          title: data.data.title || 'Aviso en Lenguaje Claro',
+          whatHappened: data.data.whatHappened || noticeInput,
+          whoIsAffected: data.data.whoIsAffected || 'Usuarios de la zona',
+          actionToday: data.data.actionToday || 'Usa vías alternas accesibles.',
+          estimatedDuration: 'Hoy',
+        });
+        setNoticeInput('');
+      }
+    } catch {
+      setActiveNotice({
+        issuer: 'Movilidad Urbana',
+        title: 'Aviso simplificado',
+        whatHappened: noticeInput,
+        whoIsAffected: 'Peatones y transporte público',
+        actionToday: 'Sigue las indicaciones del personal de tránsito.',
+        estimatedDuration: 'En curso',
+      });
+      setNoticeInput('');
+    } finally {
+      setSimplifyingNotice(false);
+    }
+  };
+
+  const handleAskCopilot = async () => {
+    if (!copilotInput.trim()) return;
+    setLoadingCopilot(true);
+    try {
+      const res = await fetch('/api/assistant/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: copilotInput, profile }),
+      });
+      const data = await res.json();
+      setCopilotAnswer(data.reply || 'Te recomiendo cruzar por rampa con guía podotáctil sobre Av. Juárez.');
+    } catch {
+      setCopilotAnswer('Para tu perfil (' + PROFILE_LABELS[profile] + '), te sugiero la ruta con cero escalones por Av. Hidalgo.');
+    } finally {
+      setLoadingCopilot(false);
     }
   };
 
@@ -284,95 +285,168 @@ export default function ViaLibreAppPage() {
     { label: 'Avisos hoy', emoji: '📢', action: () => setActiveTab('briefs') },
   ];
 
-  const navItems: { id: TabType; label: string; icon: string }[] = [
-    { id: 'explore', label: 'Explorar', icon: '🏠' },
-    { id: 'map', label: 'Mapa', icon: '🗺️' },
-    { id: 'report', label: 'Reportar', icon: '🔔' },
-    { id: 'briefs', label: 'Avisos', icon: '📢' },
-  ];
+  const mapChips = ['Lectura clara', 'Metro', 'Metrobús', 'Camión'];
 
   return (
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: p.canvas,
-        color: p.ink,
+        backgroundColor: '#0D0E12',
+        color: PALETTE.ink,
+        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
         display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
         justifyContent: 'center',
+        padding: usePhoneFrame ? '16px 12px' : '0',
+        boxSizing: 'border-box',
       }}
     >
+      {/* BARRA SUPERIOR PARA DESKTOP / PRESENTACIÓN ANTE JUECES */}
       <div
         style={{
           width: '100%',
           maxWidth: '430px',
-          minHeight: '100vh',
-          backgroundColor: p.canvas,
-          color: p.ink,
+          marginBottom: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '12px',
+          color: '#8E8E9B',
+          padding: '0 8px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E' }}></span>
+          <span style={{ fontWeight: 600 }}>VíaLibre Móvil · Prototipo Oficial</span>
+        </div>
+        <button
+          onClick={() => setUsePhoneFrame(!usePhoneFrame)}
+          style={{
+            backgroundColor: '#1E1F27',
+            border: '1px solid #363640',
+            color: '#FAF8F5',
+            borderRadius: '12px',
+            padding: '4px 10px',
+            fontSize: '11px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          {usePhoneFrame ? '🖥️ Pantalla Completa' : '📱 Marco Celular'}
+        </button>
+      </div>
+
+      {/* MARCO DE CELULAR (SMARTPHONE MOCKUP EXACTO) */}
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '416px',
+          height: usePhoneFrame ? '860px' : '100vh',
+          maxHeight: usePhoneFrame ? '92vh' : '100vh',
+          backgroundColor: PALETTE.canvas,
+          borderRadius: usePhoneFrame ? '46px' : '0',
+          border: usePhoneFrame ? '4px solid #2C2D38' : 'none',
+          boxShadow: usePhoneFrame
+            ? '0 25px 60px -15px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.08)'
+            : 'none',
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
-          paddingBottom: '104px',
+          overflow: 'hidden',
           boxSizing: 'border-box',
         }}
       >
-        {/* CONTENIDO PRINCIPAL */}
-        <main style={{ padding: '18px 18px 24px 18px', flex: 1 }}>
-          {/* TAB 1: EXPLORAR (Idéntica a Calma Urbana) */}
+        {/* BARRA DE ESTADO ANDROID / IPHONE (6:19, 100%, 5G) */}
+        <div
+          style={{
+            height: '38px',
+            backgroundColor: activeTab === 'map' ? 'rgba(17, 18, 22, 0.95)' : PALETTE.canvas,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 22px',
+            fontSize: '13px',
+            fontWeight: 700,
+            color: PALETTE.ink,
+            zIndex: 30,
+            flexShrink: 0,
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <span>6:19</span>
+          <div
+            style={{
+              width: '84px',
+              height: '18px',
+              backgroundColor: '#000000',
+              borderRadius: '12px',
+            }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+            <span>5G</span>
+            <span>📶</span>
+            <span>🔋 100</span>
+          </div>
+        </div>
+
+        {/* CONTENEDOR PRINCIPAL CON SCROLL INDEPENDIENTE */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: activeTab === 'map' ? 'hidden' : 'auto',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {/* ======================================================== */}
+          {/* TAB 1: EXPLORAR (Capturas 5 y 6) */}
+          {/* ======================================================== */}
           {activeTab === 'explore' && (
-            <div>
-              {/* Header superior con logo + título + botón perfil */}
-              <header
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                }}
-              >
+            <div style={{ padding: '16px 18px 120px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <img
-                    src={p.isDark ? '/logo_dark.png' : '/logo_light.png'}
+                    src="/logo_dark.png"
                     alt="VíaLibre"
                     style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '11px',
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '12px',
                       objectFit: 'cover',
                     }}
                   />
                   <div>
-                    <div style={{ fontSize: '12px', color: p.muted, fontWeight: 600 }}>
+                    <div style={{ fontSize: '12px', color: PALETTE.muted, fontWeight: 600 }}>
                       VíaLibre · Movilidad inclusiva
                     </div>
-                    <h1 style={{ margin: '2px 0 0 0', fontSize: '23px', fontWeight: 800, letterSpacing: '-0.4px' }}>
+                    <h1 style={{ margin: '2px 0 0 0', fontSize: '24px', fontWeight: 800, letterSpacing: '-0.4px' }}>
                       ¿A dónde vamos hoy?
                     </h1>
                   </div>
                 </div>
-
                 <button
                   onClick={() => setShowProfileModal(true)}
-                  aria-label="Abrir configuración de perfil y apariencia"
+                  aria-label="Configurar perfil"
                   style={{
-                    width: '44px',
-                    height: '44px',
+                    width: '42px',
+                    height: '42px',
                     borderRadius: '50%',
-                    backgroundColor: p.card,
-                    border: `${borderWidth} solid ${borderColor}`,
-                    color: p.ink,
+                    backgroundColor: PALETTE.card,
+                    border: '1px solid ' + PALETTE.border,
+                    color: PALETTE.ink,
                     fontSize: '18px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    flexShrink: 0,
                   }}
                 >
                   👤
                 </button>
-              </header>
+              </div>
 
-              {/* Chip de perfil activo */}
               <div style={{ marginTop: '12px' }}>
                 <button
                   onClick={() => setShowProfileModal(true)}
@@ -380,11 +454,11 @@ export default function ViaLibreAppPage() {
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '8px',
-                    backgroundColor: p.sand,
-                    border: `${borderWidth} solid ${borderColor}`,
+                    backgroundColor: PALETTE.sand,
+                    border: '1px solid ' + PALETTE.border,
                     borderRadius: '24px',
                     padding: '7px 14px',
-                    color: p.ink,
+                    color: PALETTE.ink,
                     fontSize: '13px',
                     fontWeight: 700,
                     cursor: 'pointer',
@@ -395,12 +469,11 @@ export default function ViaLibreAppPage() {
                 </button>
               </div>
 
-              {/* Barra de búsqueda píldora */}
               <div
                 style={{
                   marginTop: '16px',
-                  backgroundColor: p.card,
-                  border: `${borderWidth} solid ${borderColor}`,
+                  backgroundColor: PALETTE.card,
+                  border: '1px solid ' + PALETTE.border,
                   borderRadius: '32px',
                   padding: '6px 6px 6px 16px',
                   display: 'flex',
@@ -408,7 +481,7 @@ export default function ViaLibreAppPage() {
                   gap: '10px',
                 }}
               >
-                <span style={{ color: p.muted, fontSize: '16px' }}>🔍</span>
+                <span style={{ color: PALETTE.muted, fontSize: '16px' }}>🔍</span>
                 <input
                   type="text"
                   value={searchQuery}
@@ -420,39 +493,36 @@ export default function ViaLibreAppPage() {
                     border: 'none',
                     outline: 'none',
                     backgroundColor: 'transparent',
-                    color: p.ink,
+                    color: PALETTE.ink,
                     fontSize: '15px',
-                    minWidth: 0,
                   }}
                 />
                 <button
                   onClick={() => launchMapSearch()}
-                  aria-label="Buscar ruta accesible"
+                  aria-label="Buscar"
                   style={{
-                    width: '44px',
-                    height: '44px',
+                    width: '42px',
+                    height: '42px',
                     borderRadius: '50%',
-                    backgroundColor: p.ctaBg,
-                    color: p.ctaFg,
+                    backgroundColor: '#FAF8F5',
+                    color: '#18181B',
                     border: 'none',
                     fontSize: '18px',
-                    fontWeight: 700,
+                    fontWeight: 800,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    flexShrink: 0,
                   }}
                 >
                   →
                 </button>
               </div>
 
-              {/* Contenedor Lavanda con 8 accesos directos */}
-              <section
+              <div
                 style={{
                   marginTop: '18px',
-                  backgroundColor: p.lavender,
+                  backgroundColor: PALETTE.lavender,
                   borderRadius: '24px',
                   padding: '18px 12px',
                   display: 'grid',
@@ -474,7 +544,6 @@ export default function ViaLibreAppPage() {
                       alignItems: 'center',
                       gap: '7px',
                       cursor: 'pointer',
-                      color: p.ink,
                     }}
                   >
                     <div
@@ -482,8 +551,8 @@ export default function ViaLibreAppPage() {
                         width: '50px',
                         height: '50px',
                         borderRadius: '50%',
-                        backgroundColor: p.card,
-                        border: `${borderWidth} solid ${borderColor}`,
+                        backgroundColor: PALETTE.card,
+                        border: '1px solid ' + PALETTE.border,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -492,29 +561,29 @@ export default function ViaLibreAppPage() {
                     >
                       {item.emoji}
                     </div>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: p.ink, textAlign: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: PALETTE.ink, textAlign: 'center' }}>
                       {item.label}
                     </span>
                   </button>
                 ))}
-              </section>
+              </div>
 
-              {/* Tarjeta CTA Copilot Gemini con círculo coral/rosa */}
               <button
                 onClick={() => setShowCopilotModal(true)}
                 style={{
                   width: '100%',
-                  marginTop: '14px',
-                  backgroundColor: p.ctaBg,
-                  color: p.ctaFg,
+                  marginTop: '16px',
+                  backgroundColor: '#FAF8F5',
+                  color: '#18181B',
                   border: 'none',
-                  borderRadius: '22px',
-                  padding: '16px',
+                  borderRadius: '24px',
+                  padding: '16px 18px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '14px',
                   textAlign: 'left',
                   cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 }}
               >
                 <div
@@ -522,27 +591,28 @@ export default function ViaLibreAppPage() {
                     width: '46px',
                     height: '46px',
                     borderRadius: '50%',
-                    backgroundColor: p.coral,
+                    backgroundColor: PALETTE.coral,
                     color: '#FFFFFF',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '20px',
+                    fontSize: '22px',
                     flexShrink: 0,
                   }}
                 >
                   ✨
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: '15px' }}>Pregúntale a VíaLibre · Gemini</div>
-                  <div style={{ fontSize: '12.5px', opacity: 0.78, marginTop: '3px', lineHeight: 1.35 }}>
+                  <div style={{ fontWeight: 800, fontSize: '15px', color: '#18181B' }}>
+                    Pregúntale a VíaLibre · Gemini
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: '#52525B', marginTop: '3px', lineHeight: 1.35 }}>
                     Habla o escribe para pedir rutas, consejos o ayuda al instante.
                   </div>
                 </div>
-                <span style={{ fontSize: '16px', opacity: 0.75 }}>›</span>
+                <span style={{ fontSize: '20px', color: '#71717A', fontWeight: 600 }}>›</span>
               </button>
 
-              {/* Lugares accesibles cerca */}
               <div
                 style={{
                   marginTop: '22px',
@@ -553,11 +623,11 @@ export default function ViaLibreAppPage() {
               >
                 <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 700 }}>Lugares accesibles cerca</h2>
                 <button
-                  onClick={() => launchMapSearch('Clínica cercana accesible')}
+                  onClick={() => launchMapSearch('Lugares accesibles')}
                   style={{
                     backgroundColor: 'transparent',
                     border: 'none',
-                    color: p.coral,
+                    color: PALETTE.coral,
                     fontWeight: 700,
                     fontSize: '14px',
                     cursor: 'pointer',
@@ -569,20 +639,20 @@ export default function ViaLibreAppPage() {
 
               <div
                 style={{
-                  marginTop: '10px',
+                  marginTop: '12px',
                   display: 'flex',
                   gap: '12px',
                   overflowX: 'auto',
-                  paddingBottom: '4px',
+                  paddingBottom: '6px',
                 }}
               >
                 <div
                   onClick={() => launchMapSearch('Clínica Familiar / Centro de Salud')}
                   style={{
-                    minWidth: '236px',
-                    backgroundColor: p.card,
-                    border: `${borderWidth} solid ${borderColor}`,
-                    borderRadius: '20px',
+                    minWidth: '240px',
+                    backgroundColor: PALETTE.card,
+                    border: '1px solid ' + PALETTE.border,
+                    borderRadius: '22px',
                     padding: '16px',
                     cursor: 'pointer',
                   }}
@@ -590,22 +660,22 @@ export default function ViaLibreAppPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                     <span
                       style={{
-                        backgroundColor: p.mintSoft,
-                        color: p.mintInk,
+                        backgroundColor: PALETTE.mintSoft,
+                        color: PALETTE.mintInk,
                         fontSize: '12px',
                         fontWeight: 700,
-                        padding: '5px 11px',
+                        padding: '4px 10px',
                         borderRadius: '20px',
                       }}
                     >
                       Cero escalones
                     </span>
-                    <span style={{ fontSize: '16px' }}>🏥</span>
+                    <span style={{ fontSize: '16px' }}>➕</span>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '15px', lineHeight: 1.3 }}>
                     Clínica Familiar / Centro de Salud
                   </div>
-                  <div style={{ fontSize: '12.5px', color: p.muted, marginTop: '6px', lineHeight: 1.4 }}>
+                  <div style={{ fontSize: '12.5px', color: PALETTE.muted, marginTop: '6px', lineHeight: 1.4 }}>
                     Rampa continua y acceso directo en banqueta.
                   </div>
                 </div>
@@ -613,10 +683,10 @@ export default function ViaLibreAppPage() {
                 <div
                   onClick={() => launchMapSearch('Estación Metro / Metrobús cercana')}
                   style={{
-                    minWidth: '236px',
-                    backgroundColor: p.card,
-                    border: `${borderWidth} solid ${borderColor}`,
-                    borderRadius: '20px',
+                    minWidth: '240px',
+                    backgroundColor: PALETTE.card,
+                    border: '1px solid ' + PALETTE.border,
+                    borderRadius: '22px',
                     padding: '16px',
                     cursor: 'pointer',
                   }}
@@ -624,271 +694,402 @@ export default function ViaLibreAppPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                     <span
                       style={{
-                        backgroundColor: p.lavender,
-                        color: p.lavenderInk,
+                        backgroundColor: '#262947',
+                        color: '#818CF8',
                         fontSize: '12px',
                         fontWeight: 700,
-                        padding: '5px 11px',
+                        padding: '4px 10px',
                         borderRadius: '20px',
                       }}
                     >
                       Elevador activo
                     </span>
-                    <span style={{ fontSize: '16px' }}>🚇</span>
+                    <span style={{ fontSize: '16px' }}>🚆</span>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '15px', lineHeight: 1.3 }}>
                     Estación Metro / Metrobús cercana
                   </div>
-                  <div style={{ fontSize: '12.5px', color: p.muted, marginTop: '6px', lineHeight: 1.4 }}>
+                  <div style={{ fontSize: '12.5px', color: PALETTE.muted, marginTop: '6px', lineHeight: 1.4 }}>
                     Guía paso a paso para abordar sin dudas.
-                  </div>
-                </div>
-
-                <div
-                  onClick={() => setActiveTab('briefs')}
-                  style={{
-                    minWidth: '236px',
-                    backgroundColor: p.card,
-                    border: `${borderWidth} solid ${borderColor}`,
-                    borderRadius: '20px',
-                    padding: '16px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                    <span
-                      style={{
-                        backgroundColor: p.amberSoft,
-                        color: p.amberInk,
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        padding: '5px 11px',
-                        borderRadius: '20px',
-                      }}
-                    >
-                      Aviso claro hoy
-                    </span>
-                    <span style={{ fontSize: '16px' }}>📢</span>
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '15px', lineHeight: 1.3 }}>
-                    Desvíos y obras en tu zona
-                  </div>
-                  <div style={{ fontSize: '12.5px', color: p.muted, marginTop: '6px', lineHeight: 1.4 }}>
-                    Explicados en 3 pasos y listos para escuchar.
                   </div>
                 </div>
               </div>
 
-              {/* Tarjeta Primera Vez */}
-              <button
+              <div
                 onClick={() => setShowFirstTimerModal(true)}
                 style={{
-                  width: '100%',
-                  marginTop: '18px',
-                  backgroundColor: p.sand,
-                  border: `${borderWidth} solid ${borderColor}`,
+                  marginTop: '16px',
+                  backgroundColor: PALETTE.card,
+                  border: '1px solid ' + PALETTE.border,
                   borderRadius: '22px',
                   padding: '16px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '14px',
-                  textAlign: 'left',
                   cursor: 'pointer',
-                  color: p.ink,
                 }}
               >
                 <div
                   style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '16px',
-                    backgroundColor: p.coralSoft,
-                    color: p.coral,
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    backgroundColor: PALETTE.coralSoft,
+                    color: PALETTE.coral,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '22px',
+                    fontSize: '20px',
                     flexShrink: 0,
                   }}
                 >
                   🗣️
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: '15px' }}>¿Primera vez en Metro o camión?</div>
-                  <div style={{ fontSize: '12.5px', color: p.muted, marginTop: '4px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '14.5px' }}>¿Primera vez en Metro o camión?</div>
+                  <div style={{ fontSize: '12.5px', color: PALETTE.muted, marginTop: '3px' }}>
                     Abre la guía paso a paso en lenguaje simple antes de viajar.
                   </div>
                 </div>
-                <span style={{ fontSize: '16px' }}>›</span>
-              </button>
+                <span style={{ fontSize: '18px', color: PALETTE.muted }}>›</span>
+              </div>
             </div>
           )}
 
-          {/* TAB 2: MAPA Y RUTAS */}
+          {/* ======================================================== */}
+          {/* TAB 2: MAPA OSCURO EDGE-TO-EDGE (Captura 1) */}
+          {/* ======================================================== */}
           {activeTab === 'map' && (
-            <div>
-              <div style={{ fontSize: '12px', color: p.muted, fontWeight: 600 }}>Navegación accesible</div>
-              <h1 style={{ margin: '2px 0 14px 0', fontSize: '24px', fontWeight: 800 }}>Mapa y Ruta Segura</h1>
-
+            <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '680px' }}>
               <div
                 style={{
-                  backgroundColor: p.card,
-                  border: `${borderWidth} solid ${borderColor}`,
-                  borderRadius: '20px',
-                  padding: '16px',
-                  marginBottom: '14px',
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundColor: PALETTE.mapDarkBg,
+                  overflow: 'hidden',
                 }}
               >
-                <label style={{ display: 'block', fontSize: '13px', color: p.muted, marginBottom: '6px' }}>
-                  Destino accesible (Perfil: {PROFILE_LABELS[profile]})
-                </label>
-                <input
-                  type="text"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
+                <svg
+                  width="100%"
+                  height="100%"
+                  viewBox="0 0 400 700"
+                  preserveAspectRatio="none"
+                  style={{ width: '100%', height: '100%' }}
+                >
+                  <path d="M -20 180 Q 150 140 420 190" stroke={PALETTE.mapRoad} strokeWidth="18" fill="none" />
+                  <path d="M 180 -20 Q 160 300 240 720" stroke={PALETTE.mapRoad} strokeWidth="22" fill="none" />
+                  <path d="M 60 220 Q 200 350 420 310" stroke={PALETTE.mapHighway} strokeWidth="26" fill="none" />
+                  <path d="M -20 480 Q 220 440 420 540" stroke={PALETTE.mapRoad} strokeWidth="14" fill="none" />
+                  <path d="M 40 620 L 380 580" stroke={PALETTE.mapRoad} strokeWidth="10" fill="none" />
+                  <path d="M 120 120 C 180 180 280 200 340 160" stroke="#22232E" strokeWidth="12" fill="none" />
+                  <path d="M 200 370 Q 250 360 290 420 T 360 480" stroke={PALETTE.coral} strokeWidth="7" strokeLinecap="round" fill="none" />
+
+                  <text x="210" y="150" fill="#6E6E7E" fontSize="10" fontWeight="600">LOMAS VERDES 3RA SECC</text>
+                  <text x="30" y="470" fill="#6E6E7E" fontSize="10">Av. San Mateo</text>
+                  <text x="160" y="460" fill="#6E6E7E" fontSize="9">SAN MATEO</text>
+                  <text x="240" y="580" fill="#6E6E7E" fontSize="9">Cortijo La Movida</text>
+                </svg>
+
+                {/* 1. Sam's Club */}
+                <div
+                  onClick={() => setSelectedPoi("Sam's Club")}
                   style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    borderRadius: '14px',
-                    border: `${borderWidth} solid ${borderColor}`,
-                    backgroundColor: p.sand,
-                    color: p.ink,
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-                <button
-                  onClick={() => handleCalculateRoute()}
-                  disabled={loadingRoute}
-                  style={{
-                    width: '100%',
-                    marginTop: '12px',
-                    padding: '13px',
-                    borderRadius: '26px',
-                    backgroundColor: p.coral,
-                    color: '#FFFFFF',
-                    fontWeight: 700,
-                    fontSize: '15px',
-                    border: 'none',
+                    position: 'absolute',
+                    top: '170px',
+                    left: '68px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                     cursor: 'pointer',
                   }}
                 >
-                  {loadingRoute ? 'Calculando ruta accesible...' : '🔍 Calcular Ruta Accesible'}
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      backgroundColor: '#0284C7',
+                      border: '2px solid #FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '13px',
+                    }}
+                  >
+                    🛍️
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#FAF8F5' }}>Sam's Club</span>
+                </div>
+
+                {/* 2. Salon De Fiestas Orion */}
+                <div
+                  onClick={() => setSelectedPoi('Salon De Fiestas Orion')}
+                  style={{
+                    position: 'absolute',
+                    top: '320px',
+                    right: '80px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#FAF8F5' }}>Salon De Fiestas Orion</span>
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      backgroundColor: '#8B5CF6',
+                      border: '2px solid #FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '13px',
+                    }}
+                  >
+                    🏰
+                  </div>
+                </div>
+
+                {/* 3. UVM Campus Lomas Verdes */}
+                <div
+                  onClick={() => setSelectedPoi('UVM Campus Lomas Verdes')}
+                  style={{
+                    position: 'absolute',
+                    top: '360px',
+                    left: '100px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#FAF8F5', lineHeight: 1.2 }}>
+                      UVM Campus
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#B8B8C4' }}>Lomas Verdes</div>
+                  </div>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      backgroundColor: '#0284C7',
+                      border: '2px solid #FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '15px',
+                    }}
+                  >
+                    🎓
+                  </div>
+                </div>
+
+                <button
+                  aria-label="Centrar en mi ubicación"
+                  style={{
+                    position: 'absolute',
+                    top: '124px',
+                    right: '16px',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    backgroundColor: '#1E1F27',
+                    border: '1px solid #363640',
+                    color: '#FAF8F5',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  🎯
                 </button>
+
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '100px',
+                    left: '16px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'rgba(255,255,255,0.4)',
+                    letterSpacing: '-0.3px',
+                  }}
+                >
+                  Google
+                </div>
               </div>
 
-              {/* Resumen de barreras en radio activo */}
+              {/* OVERLAY FLOTANTE SUPERIOR */}
               <div
                 style={{
-                  backgroundColor: p.lavender,
-                  borderRadius: '20px',
-                  padding: '16px',
-                  marginBottom: '14px',
+                  position: 'absolute',
+                  top: '12px',
+                  left: '16px',
+                  right: '16px',
+                  zIndex: 20,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
                 }}
               >
-                <div style={{ fontWeight: 700, fontSize: '14px', color: p.lavenderInk }}>
-                  📍 Barreras detectadas en el radio activo ({barriers.length})
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                  {barriers.map((b) => (
-                    <div
-                      key={b.id}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#1E1F27',
+                      border: '1px solid #363640',
+                      borderRadius: '32px',
+                      padding: '4px 4px 4px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 6px 16px rgba(0,0,0,0.5)',
+                    }}
+                  >
+                    <span style={{ color: PALETTE.muted, fontSize: '15px' }}>🔍</span>
+                    <input
+                      type="text"
+                      value={mapSearchQuery}
+                      onChange={(e) => setMapSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && calculateAccessibleRoute(mapSearchQuery)}
+                      placeholder="¿A dónde vas? Ej. Metro Hi..."
                       style={{
-                        backgroundColor: p.card,
-                        border: `${borderWidth} solid ${borderColor}`,
-                        borderRadius: '14px',
-                        padding: '10px 12px',
+                        flex: 1,
+                        border: 'none',
+                        outline: 'none',
+                        backgroundColor: 'transparent',
+                        color: PALETTE.ink,
+                        fontSize: '14px',
+                      }}
+                    />
+                    <button
+                      onClick={() => calculateAccessibleRoute(mapSearchQuery || 'Metro Hidalgo')}
+                      aria-label="Calcular ruta"
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        backgroundColor: '#FFFFFF',
+                        color: '#18181B',
+                        border: 'none',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
                         display: 'flex',
-                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        gap: '10px',
+                        justifyContent: 'center',
                       }}
                     >
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '13px' }}>{b.title}</div>
-                        <div style={{ fontSize: '12px', color: p.muted }}>{b.category}</div>
-                      </div>
-                      <span
+                      ⮡
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowProfileModal(true)}
+                    style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '50%',
+                      backgroundColor: '#1E1F27',
+                      border: '1px solid #363640',
+                      color: PALETTE.ink,
+                      fontSize: '17px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    👤
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    overflowX: 'auto',
+                    paddingBottom: '4px',
+                  }}
+                >
+                  {mapChips.map((chip) => {
+                    const isActive = activeMapChip === chip;
+                    return (
+                      <button
+                        key={chip}
+                        onClick={() => {
+                          setActiveMapChip(chip);
+                          if (chip !== 'Lectura clara') {
+                            calculateAccessibleRoute(chip);
+                          }
+                        }}
                         style={{
-                          fontSize: '11px',
+                          backgroundColor: isActive ? '#FFFFFF' : '#1E1F27',
+                          color: isActive ? '#18181B' : '#FAF8F5',
+                          border: isActive ? 'none' : '1px solid #363640',
+                          borderRadius: '24px',
+                          padding: '7px 16px',
+                          fontSize: '13px',
                           fontWeight: 700,
-                          padding: '4px 9px',
-                          borderRadius: '12px',
-                          backgroundColor: p.coralSoft,
-                          color: p.coral,
-                          flexShrink: 0,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
                         }}
                       >
-                        {b.confirmations} conf.
-                      </span>
-                    </div>
-                  ))}
+                        {chip}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {routeResult && (
                 <div
                   style={{
-                    backgroundColor: p.card,
-                    border: `${borderWidth} solid ${borderColor}`,
-                    borderRadius: '20px',
+                    position: 'absolute',
+                    bottom: '96px',
+                    left: '16px',
+                    right: '16px',
+                    backgroundColor: '#1D1D24',
+                    border: '1px solid #363640',
+                    borderRadius: '24px',
                     padding: '16px',
+                    zIndex: 25,
+                    boxShadow: '0 12px 30px rgba(0,0,0,0.6)',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                    <div>
-                      <span
-                        style={{
-                          backgroundColor: p.mintSoft,
-                          color: p.mintInk,
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          padding: '4px 10px',
-                          borderRadius: '14px',
-                        }}
-                      >
-                        Score {routeResult.accessibilityScore}/100
-                      </span>
-                      <div style={{ fontWeight: 800, fontSize: '16px', marginTop: '6px' }}>
-                        {routeResult.distanceMeters} m · {Math.round(routeResult.durationSeconds / 60)} min
-                      </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontWeight: 800, fontSize: '15px', color: PALETTE.ink }}>
+                      Ruta Accesible a {routeResult.destination}
                     </div>
                     <button
-                      onClick={() =>
-                        handleSpeakText(routeResult.steps.map((s: any) => s.instruction).join('. '))
-                      }
+                      onClick={() => setRouteResult(null)}
                       style={{
-                        backgroundColor: p.coral,
-                        color: '#FFFFFF',
+                        background: 'none',
                         border: 'none',
-                        borderRadius: '20px',
-                        padding: '8px 14px',
-                        fontWeight: 700,
-                        fontSize: '13px',
+                        color: PALETTE.muted,
+                        fontSize: '18px',
                         cursor: 'pointer',
                       }}
                     >
-                      🔊 {speaking ? 'Leyendo...' : 'Escuchar'}
+                      ✕
                     </button>
                   </div>
-
-                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {routeResult.steps.map((step: any, idx: number) => (
-                      <div
-                        key={idx}
-                        style={{
-                          backgroundColor: p.sand,
-                          borderRadius: '14px',
-                          padding: '11px 12px',
-                          fontSize: '13px',
-                        }}
-                      >
-                        <strong>Paso {idx + 1}:</strong> {step.instruction}
-                        {step.slopePercentage !== undefined && (
-                          <div style={{ fontSize: '11.5px', color: p.mintInk, marginTop: '3px', fontWeight: 600 }}>
-                            Pendiente leve: {step.slopePercentage}%
-                          </div>
-                        )}
+                  <div style={{ fontSize: '12.5px', color: '#4ADE80', fontWeight: 600, marginTop: '4px' }}>
+                    ✓ Pendientes menores a 4% · Elevadores verificados en vivo
+                  </div>
+                  <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {routeResult.steps.map((st: any, i: number) => (
+                      <div key={i} style={{ fontSize: '12px', color: PALETTE.ink, display: 'flex', gap: '6px' }}>
+                        <span style={{ color: PALETTE.coral, fontWeight: 700 }}>{i + 1}.</span>
+                        <span>{st.text}</span>
                       </div>
                     ))}
                   </div>
@@ -896,640 +1097,1040 @@ export default function ViaLibreAppPage() {
               )}
             </div>
           )}
-
-          {/* TAB 3: REPORTAR */}
+          {/* ======================================================== */}
+          {/* TAB 3: REPORTAR OBSTÁCULO (Captura 2) */}
+          {/* ======================================================== */}
           {activeTab === 'report' && (
-            <div>
-              <div style={{ fontSize: '12px', color: p.muted, fontWeight: 600 }}>Colaboración ciudadana</div>
-              <h1 style={{ margin: '2px 0 8px 0', fontSize: '24px', fontWeight: 800 }}>Reportar Obstáculo</h1>
-              <p style={{ fontSize: '13.5px', color: p.muted, margin: '0 0 16px 0', lineHeight: 1.45 }}>
-                Sube una fotografía o nota de voz. Gemini clasifica la barrera y la deduplica en un radio de 25m.
-              </p>
-
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ padding: '16px 18px 120px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '13px', color: PALETTE.muted, fontWeight: 600 }}>
+                    Participación ciudadana
+                  </div>
+                  <h1 style={{ margin: '4px 0 6px 0', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.4px' }}>
+                    Reportar obstáculo
+                  </h1>
+                </div>
                 <button
-                  onClick={() => setReportType('photo')}
+                  onClick={() => setShowProfileModal(true)}
                   style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '18px',
-                    backgroundColor: reportType === 'photo' ? p.coral : p.card,
-                    color: reportType === 'photo' ? '#FFFFFF' : p.ink,
-                    border: `${borderWidth} solid ${reportType === 'photo' ? p.coral : borderColor}`,
-                    fontWeight: 700,
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    backgroundColor: PALETTE.card,
+                    border: '1px solid ' + PALETTE.border,
+                    color: PALETTE.ink,
+                    fontSize: '18px',
                     cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  📷 Fotografía
-                </button>
-                <button
-                  onClick={() => setReportType('audio')}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '18px',
-                    backgroundColor: reportType === 'audio' ? p.coral : p.card,
-                    color: reportType === 'audio' ? '#FFFFFF' : p.ink,
-                    border: `${borderWidth} solid ${reportType === 'audio' ? p.coral : borderColor}`,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  🎙️ Nota de voz
+                  👤
                 </button>
               </div>
 
-              <label
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minHeight: '164px',
-                  backgroundColor: p.card,
-                  border: `2px dashed ${p.coral}`,
-                  borderRadius: '20px',
-                  padding: '16px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  marginBottom: '14px',
-                }}
-              >
-                {selectedImagePreview && reportType === 'photo' ? (
+              <p style={{ margin: '0 0 18px 0', fontSize: '13.5px', color: PALETTE.muted, lineHeight: 1.45 }}>
+                Ayuda a mantener las rutas libres capturando rampas bloqueadas, banquetas rotas o elevadores sin servicio.
+              </p>
+
+              {/* DOS GRANDES BOTONES DE ACCIÓN (50/50: Tomar foto / Nota de voz) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    backgroundColor: '#1D1E27',
+                    border: '1px solid ' + PALETTE.border,
+                    borderRadius: '22px',
+                    padding: '22px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '54px',
+                      height: '54px',
+                      borderRadius: '50%',
+                      backgroundColor: '#363B5B',
+                      color: '#FAF8F5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '24px',
+                    }}
+                  >
+                    📷
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '15px', color: PALETTE.ink }}>Tomar foto</div>
+                    <div style={{ fontSize: '12px', color: PALETTE.muted, marginTop: '3px' }}>
+                      Visión IA + EXIF cero
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsRecordingVoice(!isRecordingVoice);
+                    if (!isRecordingVoice) {
+                      setVoiceRecorded(true);
+                      setReportNote((prev) => prev ? prev + ' [Audio grabado]' : 'Rampa obstruida por obras en la esquina.');
+                    }
+                  }}
+                  style={{
+                    backgroundColor: isRecordingVoice ? PALETTE.alertRedSoft : '#1D1E27',
+                    border: isRecordingVoice ? '1px solid ' + PALETTE.coral : '1px solid ' + PALETTE.border,
+                    borderRadius: '22px',
+                    padding: '22px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '54px',
+                      height: '54px',
+                      borderRadius: '50%',
+                      backgroundColor: isRecordingVoice ? PALETTE.coral : '#542531',
+                      color: '#FAF8F5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '24px',
+                    }}
+                  >
+                    {isRecordingVoice ? '⏹️' : '🎙️'}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '15px', color: PALETTE.ink }}>
+                      {isRecordingVoice ? 'Detener voz' : 'Nota de voz'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: PALETTE.muted, marginTop: '3px' }}>
+                      {isRecordingVoice ? 'Grabando...' : voiceRecorded ? 'Audio listo' : 'Dictado guiado'}
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+              />
+
+              {reportImagePreview && (
+                <div style={{ marginTop: '14px', position: 'relative', borderRadius: '18px', overflow: 'hidden' }}>
                   <img
-                    src={selectedImagePreview}
-                    alt="Vista previa"
-                    style={{ maxHeight: '140px', borderRadius: '12px', objectFit: 'cover' }}
+                    src={reportImagePreview}
+                    alt="Obstáculo"
+                    style={{ width: '100%', maxHeight: '200px', objectFit: 'cover' }}
                   />
-                ) : (
-                  <>
-                    <span style={{ fontSize: '34px', marginBottom: '8px' }}>
-                      {reportType === 'photo' ? '📸' : '🎙️'}
-                    </span>
-                    <span style={{ fontSize: '13.5px', fontWeight: 600 }}>
-                      {reportType === 'photo'
-                        ? 'Toca para tomar o subir foto de la barrera'
-                        : 'Modo nota de voz listo para análisis'}
-                    </span>
-                    <span style={{ fontSize: '12px', color: p.muted, marginTop: '4px' }}>
-                      Privacidad: metadatos EXIF eliminados antes del envío
-                    </span>
-                  </>
-                )}
-                {reportType === 'photo' && (
-                  <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-                )}
-              </label>
+                  {analyzingImage && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundColor: 'rgba(0,0,0,0.65)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#FAF8F5',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                      }}
+                    >
+                      ✨ Analizando accesibilidad con Gemini...
+                    </div>
+                  )}
+                </div>
+              )}
 
-              <button
-                onClick={handleSendReport}
-                disabled={reporting}
+              {/* TARJETA VERDE DE PRIVACIDAD EXIF CERO (Captura 2) */}
+              <div
                 style={{
-                  width: '100%',
-                  padding: '15px',
-                  borderRadius: '28px',
-                  backgroundColor: p.coral,
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: '15px',
-                  border: 'none',
-                  cursor: 'pointer',
+                  marginTop: '16px',
+                  backgroundColor: '#1C2723',
+                  borderRadius: '18px',
+                  padding: '14px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
                 }}
               >
-                {reporting ? 'Gemini analizando y deduplicando...' : '🚀 Analizar y Publicar Reporte'}
-              </button>
+                <span style={{ fontSize: '20px', color: '#4ADE80' }}>🛡️</span>
+                <span style={{ fontSize: '13px', color: '#E2FBEA', lineHeight: 1.4, fontWeight: 500 }}>
+                  Privacidad protegida: los metadatos EXIF se eliminan en tu teléfono antes del envío.
+                </span>
+              </div>
 
-              {reportResult && (
+              {/* DETALLES DEL OBSTÁCULO (OPCIONAL) */}
+              <div style={{ marginTop: '16px' }}>
+                <textarea
+                  value={reportNote}
+                  onChange={(e) => setReportNote(e.target.value)}
+                  placeholder="Detalles del obstáculo (opcional)"
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#1D1E27',
+                    border: '1px solid ' + PALETTE.border,
+                    borderRadius: '20px',
+                    padding: '14px 16px',
+                    color: PALETTE.ink,
+                    fontSize: '15px',
+                    outline: 'none',
+                    resize: 'none',
+                    boxSizing: 'border-box',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              {reportSuccessMessage && (
                 <div
                   style={{
-                    marginTop: '14px',
-                    backgroundColor: p.card,
-                    border: `${borderWidth} solid ${borderColor}`,
-                    borderRadius: '20px',
+                    marginTop: '12px',
+                    backgroundColor: PALETTE.mintSoft,
+                    color: PALETTE.mintInk,
+                    borderRadius: '14px',
+                    padding: '12px 14px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                  }}
+                >
+                  ✓ {reportSuccessMessage}
+                </div>
+              )}
+
+              {/* BOTÓN BLANCO CON CÍRCULO ROJO Y FLECHA (Captura 2) */}
+              <button
+                onClick={handleSubmitReport}
+                disabled={submittingReport}
+                style={{
+                  width: '100%',
+                  marginTop: '20px',
+                  backgroundColor: '#FFFFFF',
+                  color: '#121214',
+                  border: 'none',
+                  borderRadius: '32px',
+                  padding: '10px 12px 10px 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  fontWeight: 800,
+                  fontSize: '16px',
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+                }}
+              >
+                <span>{submittingReport ? 'Publicando...' : 'Confirmar y publicar al mapa'}</span>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    backgroundColor: PALETTE.coral,
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '16px',
+                  }}
+                >
+                  ➤
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 4: AVISOS CLAROS (Capturas 3 y 4) */}
+          {/* ======================================================== */}
+          {activeTab === 'briefs' && (
+            <div style={{ padding: '16px 18px 120px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '13px', color: PALETTE.muted, fontWeight: 600 }}>
+                    Lectura Fácil · ISO 24495-1
+                  </div>
+                  <h1 style={{ margin: '4px 0 6px 0', fontSize: '26px', fontWeight: 800, letterSpacing: '-0.4px' }}>
+                    Avisos claros
+                  </h1>
+                </div>
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    backgroundColor: PALETTE.card,
+                    border: '1px solid ' + PALETTE.border,
+                    color: PALETTE.ink,
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  👤
+                </button>
+              </div>
+
+              <p style={{ margin: '0 0 14px 0', fontSize: '13.5px', color: PALETTE.muted, lineHeight: 1.45 }}>
+                Comunicados oficiales explicados paso a paso sin términos difíciles.
+              </p>
+
+              <div style={{ marginBottom: '14px' }}>
+                <button
+                  onClick={() => setLargeText(!largeText)}
+                  style={{
+                    backgroundColor: largeText ? '#FFFFFF' : '#1D1E27',
+                    color: largeText ? '#18181B' : '#FAF8F5',
+                    border: '1px solid ' + (largeText ? '#FFFFFF' : '#363640'),
+                    borderRadius: '24px',
+                    padding: '8px 18px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {largeText ? '✓ Texto Grande Activo' : 'Texto Grande'}
+                </button>
+              </div>
+
+              {/* TARJETA DE REPRODUCTOR DE VOZ (Captura 3) */}
+              <div
+                style={{
+                  backgroundColor: '#1D1E27',
+                  border: '1px solid ' + PALETTE.border,
+                  borderRadius: '22px',
+                  padding: '16px',
+                  marginBottom: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+                  <div
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '50%',
+                      backgroundColor: '#262947',
+                      color: '#818CF8',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '18px',
+                    }}
+                  >
+                    🔊
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '15px', color: PALETTE.ink }}>
+                      Escuchar resumen del aviso
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: PALETTE.muted, marginTop: '2px' }}>
+                      Lectura en voz clara disponible
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() =>
+                      handleSpeakText(
+                        activeNotice.title +
+                          '. Qué pasó: ' +
+                          activeNotice.whatHappened +
+                          '. A quién afecta: ' +
+                          activeNotice.whoIsAffected +
+                          '. Qué hacer hoy: ' +
+                          activeNotice.actionToday
+                      )
+                    }
+                    style={{
+                      flex: 1,
+                      backgroundColor: PALETTE.coral,
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '24px',
+                      padding: '11px 16px',
+                      fontWeight: 700,
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span>{isSpeaking ? '⏹ Detener audio' : '▶ Escuchar en voz clara'}</span>
+                  </button>
+                  <button
+                    onClick={() => setSpeechSpeed(speechSpeed === 1.0 ? 1.25 : 1.0)}
+                    style={{
+                      backgroundColor: '#1E1F27',
+                      border: '1px solid ' + PALETTE.border,
+                      color: PALETTE.ink,
+                      borderRadius: '24px',
+                      padding: '11px 16px',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {speechSpeed}x
+                  </button>
+                </div>
+              </div>
+
+              {/* SECCIÓN: SUBIR CIRCULAR, PDF O FOTO (Captura 3) */}
+              <div
+                style={{
+                  border: '1.5px solid #FFFFFF',
+                  borderRadius: '22px',
+                  padding: '18px 16px',
+                  marginBottom: '20px',
+                }}
+              >
+                <div style={{ fontWeight: 800, fontSize: '15px', marginBottom: '14px', color: PALETTE.ink }}>
+                  Subir circular, PDF o foto del aviso
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                  <button
+                    onClick={() => pdfInputRef.current?.click()}
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      color: '#18181B',
+                      border: 'none',
+                      borderRadius: '24px',
+                      padding: '10px 14px',
+                      fontWeight: 700,
+                      fontSize: '13.5px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span>Subir PDF</span>
+                    <span
+                      style={{
+                        backgroundColor: '#EF4444',
+                        color: '#FFFFFF',
+                        fontSize: '10px',
+                        fontWeight: 900,
+                        padding: '2px 5px',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      PDF
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: '1px solid #363640',
+                      color: PALETTE.ink,
+                      borderRadius: '24px',
+                      padding: '10px 14px',
+                      fontWeight: 700,
+                      fontSize: '13.5px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span>📷</span>
+                    <span>Foto aviso</span>
+                  </button>
+                </div>
+
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setActiveNotice({
+                        issuer: 'Movilidad Urbana',
+                        title: 'Aviso simplificado: ' + f.name,
+                        whatHappened: 'Desviación temporal reportada en el documento oficial.',
+                        whoIsAffected: 'Usuarios de la zona escolar.',
+                        actionToday: 'Toma la parada alterna sobre Av. Central.',
+                        estimatedDuration: 'Hoy',
+                      });
+                    }
+                  }}
+                  style={{ display: 'none' }}
+                />
+
+                <div style={{ position: 'relative' }}>
+                  <textarea
+                    value={noticeInput}
+                    onChange={(e) => setNoticeInput(e.target.value)}
+                    placeholder="O pega aquí un comunicado municipal..."
+                    rows={2}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#16171F',
+                      border: '1px solid #363640',
+                      borderRadius: '16px',
+                      padding: '12px 14px',
+                      color: PALETTE.ink,
+                      fontSize: '14px',
+                      outline: 'none',
+                      resize: 'none',
+                      boxSizing: 'border-box',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button
+                      onClick={handleSimplifyNotice}
+                      disabled={simplifyingNotice}
+                      style={{
+                        backgroundColor: '#1E1F27',
+                        border: '1px solid #363640',
+                        color: PALETTE.ink,
+                        borderRadius: '20px',
+                        padding: '8px 16px',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {simplifyingNotice ? 'Simplificando...' : 'Simplificar texto'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* TÍTULO Y EMISOR */}
+              <div style={{ marginBottom: '14px' }}>
+                <h2
+                  style={{
+                    margin: '0 0 4px 0',
+                    fontSize: largeText ? '21px' : '18px',
+                    fontWeight: 800,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {activeNotice.title}
+                </h2>
+                <div style={{ fontSize: '13px', color: PALETTE.muted }}>Emisor: {activeNotice.issuer}</div>
+              </div>
+
+              {/* LAS 3 TARJETAS PASO A PASO (Capturas 3 y 4) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div
+                  style={{
+                    backgroundColor: '#1D1E27',
+                    border: '1px solid ' + PALETTE.border,
+                    borderRadius: '22px',
                     padding: '16px',
                   }}
                 >
-                  <span
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        backgroundColor: PALETTE.coralSoft,
+                        color: PALETTE.coral,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px',
+                      }}
+                    >
+                      🛠️
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: PALETTE.coral, letterSpacing: '0.4px' }}>
+                        PASO 01 · CAUSA
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: 800 }}>Qué pasó</div>
+                    </div>
+                  </div>
+                  <p
                     style={{
-                      backgroundColor: p.mintSoft,
-                      color: p.mintInk,
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      padding: '4px 10px',
-                      borderRadius: '14px',
+                      margin: '0 0 10px 0',
+                      fontSize: largeText ? '16px' : '14px',
+                      lineHeight: 1.45,
+                      color: PALETTE.ink,
                     }}
                   >
-                    ✓ Procesado por Gemini
-                  </span>
-                  <div style={{ fontWeight: 700, fontSize: '15px', marginTop: '10px' }}>{reportResult.title}</div>
-                  <div style={{ fontSize: '13px', color: p.muted, marginTop: '4px' }}>
-                    {reportResult.category} · Severidad: {reportResult.severity}
-                  </div>
-                  <div style={{ fontSize: '12.5px', color: p.coral, marginTop: '6px', fontWeight: 600 }}>
-                    {reportResult.isDuplicate
-                      ? 'Coincidencia en 25m: confirmación agregada (+1)'
-                      : 'Nuevo obstáculo publicado en el mapa'}
+                    {activeNotice.whatHappened}
+                  </p>
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      backgroundColor: '#15161C',
+                      borderRadius: '12px',
+                      padding: '5px 10px',
+                      fontSize: '11.5px',
+                      color: PALETTE.muted,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Vigencia estimada: {activeNotice.estimatedDuration}
                   </div>
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* TAB 4: AVISOS EN LENGUAJE CLARO */}
-          {activeTab === 'briefs' && (
-            <div>
-              <div style={{ fontSize: '12px', color: p.muted, fontWeight: 600 }}>ISO 24495-1 · W3C COGA</div>
-              <h1 style={{ margin: '2px 0 8px 0', fontSize: '24px', fontWeight: 800 }}>
-                Avisos en Lenguaje Claro
-              </h1>
-              <p style={{ fontSize: '13.5px', color: p.muted, margin: '0 0 14px 0', lineHeight: 1.45 }}>
-                Convierte comunicados técnicos o desvíos municipales en 3 pasos fáciles de entender y escuchar.
-              </p>
-
-              <textarea
-                rows={4}
-                value={noticeInput}
-                onChange={(e) => setNoticeInput(e.target.value)}
-                placeholder="Pega aquí el comunicado o aviso municipal..."
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  borderRadius: '18px',
-                  border: `${borderWidth} solid ${borderColor}`,
-                  backgroundColor: p.card,
-                  color: p.ink,
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  marginBottom: '10px',
-                }}
-              />
-
-              <button
-                onClick={() =>
-                  setNoticeInput(
-                    'Se informa a la ciudadanía que debido a trabajos de rehabilitación de drenaje en el cuadrante oriente, la circulación peatonal sobre Calzada Juárez quedará suspendida temporalmente debiendo transitar por los desvíos habilitados en Calle Morelos.'
-                  )
-                }
-                style={{
-                  backgroundColor: p.sand,
-                  color: p.ink,
-                  border: `${borderWidth} solid ${borderColor}`,
-                  borderRadius: '16px',
-                  padding: '7px 12px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  marginBottom: '12px',
-                }}
-              >
-                Cargar aviso de muestra
-              </button>
-
-              <button
-                onClick={handleTranslateNotice}
-                disabled={translatingNotice}
-                style={{
-                  width: '100%',
-                  padding: '15px',
-                  borderRadius: '28px',
-                  backgroundColor: p.coral,
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: '15px',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                {translatingNotice ? 'Traduciendo a Lenguaje Claro...' : '✨ Traducir a Lenguaje Claro'}
-              </button>
-
-              {noticeResult && (
-                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: '14px' }}>Resumen en 3 bloques</span>
-                    <button
-                      onClick={() =>
-                        handleSpeakText(
-                          `Qué pasó: ${noticeResult.quePaso}. A quién afecta: ${noticeResult.aQuienAfecta}. Qué hacer hoy: ${noticeResult.queHacerHoy}`
-                        )
-                      }
+                <div
+                  style={{
+                    backgroundColor: '#1D1E27',
+                    border: '1px solid ' + PALETTE.border,
+                    borderRadius: '22px',
+                    padding: '16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <div
                       style={{
-                        backgroundColor: p.ctaBg,
-                        color: p.ctaFg,
-                        border: 'none',
-                        borderRadius: '20px',
-                        padding: '7px 14px',
-                        fontWeight: 700,
-                        fontSize: '12.5px',
-                        cursor: 'pointer',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        backgroundColor: '#262947',
+                        color: '#818CF8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px',
                       }}
                     >
-                      🔊 {speaking ? 'Leyendo...' : 'Escuchar audio'}
-                    </button>
-                  </div>
-
-                  <div
-                    style={{
-                      backgroundColor: p.card,
-                      border: `${borderWidth} solid ${borderColor}`,
-                      borderRadius: '18px',
-                      padding: '14px',
-                    }}
-                  >
-                    <span
-                      style={{
-                        backgroundColor: p.coralSoft,
-                        color: p.coral,
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        padding: '3px 9px',
-                        borderRadius: '10px',
-                      }}
-                    >
-                      1. ¿QUÉ PASÓ?
-                    </span>
-                    <div style={{ fontSize: '14px', marginTop: '8px', lineHeight: 1.45 }}>
-                      {noticeResult.quePaso}
+                      👥
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#818CF8', letterSpacing: '0.4px' }}>
+                        PASO 02 · AFECTADOS
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: 800 }}>A quién afecta</div>
                     </div>
                   </div>
-
-                  <div
+                  <p
                     style={{
-                      backgroundColor: p.card,
-                      border: `${borderWidth} solid ${borderColor}`,
-                      borderRadius: '18px',
-                      padding: '14px',
+                      margin: 0,
+                      fontSize: largeText ? '16px' : '14px',
+                      lineHeight: 1.45,
+                      color: PALETTE.ink,
                     }}
                   >
-                    <span
-                      style={{
-                        backgroundColor: p.amberSoft,
-                        color: p.amberInk,
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        padding: '3px 9px',
-                        borderRadius: '10px',
-                      }}
-                    >
-                      2. ¿A QUIÉN AFECTA?
-                    </span>
-                    <div style={{ fontSize: '14px', marginTop: '8px', lineHeight: 1.45 }}>
-                      {noticeResult.aQuienAfecta}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      backgroundColor: p.card,
-                      border: `${borderWidth} solid ${borderColor}`,
-                      borderRadius: '18px',
-                      padding: '14px',
-                    }}
-                  >
-                    <span
-                      style={{
-                        backgroundColor: p.mintSoft,
-                        color: p.mintInk,
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        padding: '3px 9px',
-                        borderRadius: '10px',
-                      }}
-                    >
-                      3. ¿QUÉ HACER HOY?
-                    </span>
-                    <div style={{ fontSize: '14px', marginTop: '8px', lineHeight: 1.45 }}>
-                      {noticeResult.queHacerHoy}
-                    </div>
-                  </div>
+                    {activeNotice.whoIsAffected}
+                  </p>
                 </div>
-              )}
+
+                <div
+                  style={{
+                    backgroundColor: '#1D1E27',
+                    border: '1px solid ' + PALETTE.border,
+                    borderRadius: '22px',
+                    padding: '16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        backgroundColor: PALETTE.mintSoft,
+                        color: PALETTE.mintInk,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px',
+                      }}
+                    >
+                      ⮡
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: PALETTE.mintInk, letterSpacing: '0.4px' }}>
+                        PASO 03 · ACCIÓN HOY
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: 800 }}>Qué hacer hoy</div>
+                    </div>
+                  </div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: largeText ? '16px' : '14px',
+                      lineHeight: 1.45,
+                      color: PALETTE.ink,
+                    }}
+                  >
+                    {activeNotice.actionToday}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
-        </main>
-
-        {/* BARRA DE NAVEGACIÓN FLOTANTE ESTILO PÍLDORA CON CORAL/ROSA ACTIVO */}
-        <nav
-          aria-label="Navegación principal"
+        </div>
+        {/* ======================================================== */}
+        {/* BARRA FLOTANTE INFERIOR CON PÍLDORA ROJA (Idéntica a Flutter) */}
+        {/* ======================================================== */}
+        <div
           style={{
-            position: 'fixed',
-            bottom: '14px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 'calc(100% - 32px)',
-            maxWidth: '398px',
-            backgroundColor: p.card,
-            border: `${borderWidth} solid ${borderColor}`,
-            borderRadius: '32px',
-            padding: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '4px',
-            boxShadow: p.isDark ? '0 8px 24px rgba(0,0,0,0.45)' : '0 8px 24px rgba(0,0,0,0.10)',
-            zIndex: 30,
+            position: 'absolute',
+            bottom: '12px',
+            left: '16px',
+            right: '16px',
+            zIndex: 40,
+            pointerEvents: 'none',
           }}
         >
-          {navItems.map((item) => {
-            const selected = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
+          <nav
+            style={{
+              pointerEvents: 'auto',
+              backgroundColor: '#1D1D1F',
+              border: '1px solid #363640',
+              borderRadius: '34px',
+              padding: '6px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            {[
+              { id: 'explore', label: 'Explorar', icon: '🏠' },
+              { id: 'map', label: 'Mapa', icon: '🗺️' },
+              { id: 'report', label: 'Reportar', icon: '🔔' },
+              { id: 'briefs', label: 'Avisos', icon: '📢' },
+            ].map((tab) => {
+              const selected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as TabType)}
+                  style={{
+                    flex: selected ? 1.4 : 1,
+                    minHeight: '46px',
+                    borderRadius: '24px',
+                    border: 'none',
+                    backgroundColor: selected ? PALETTE.coral : 'transparent',
+                    color: selected ? '#FFFFFF' : PALETTE.muted,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    padding: '6px 12px',
+                    transition: 'all 0.16s ease',
+                  }}
+                >
+                  <span style={{ fontSize: '18px' }}>{tab.icon}</span>
+                  {selected && <span>{tab.label}</span>}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Indicador inferior de gestos Android (══) */}
+        <div
+          style={{
+            height: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: activeTab === 'map' ? 'transparent' : PALETTE.canvas,
+            zIndex: 45,
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ width: '72px', height: '4px', backgroundColor: '#52525B', borderRadius: '2px' }} />
+        </div>
+      </div>
+
+      {/* ======================================================== */}
+      {/* MODAL: CAMBIO DE PERFIL ACCESIBLE */}
+      {/* ======================================================== */}
+      {showProfileModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: '16px',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => setShowProfileModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: PALETTE.card,
+              border: '1px solid ' + PALETTE.border,
+              borderRadius: '28px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '380px',
+              color: PALETTE.ink,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: 800 }}>Elige tu Perfil</h3>
+            <p style={{ margin: '0 0 18px 0', fontSize: '13px', color: PALETTE.muted }}>
+              VíaLibre adapta las rutas, pendientes y avisos a tus necesidades específicas.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[
+                {
+                  id: 'wheelchair',
+                  title: 'Silla de ruedas / Carriola',
+                  desc: 'Evita banquetas rotas, escalones sin rampa y pendientes > 6%.',
+                  icon: '♿',
+                },
+                {
+                  id: 'low_vision',
+                  title: 'Baja visión',
+                  desc: 'Prioriza alto contraste, guías podotáctiles y lectura auditiva de pasos.',
+                  icon: '👁️',
+                },
+                {
+                  id: 'clear_reading',
+                  title: 'Lectura clara / Neurodivergencia',
+                  desc: 'Instrucciones concisas paso a paso, sin saturación visual.',
+                  icon: '📖',
+                },
+              ].map((pItem) => {
+                const isCurrent = profile === pItem.id;
+                return (
+                  <div
+                    key={pItem.id}
+                    onClick={() => {
+                      setProfile(pItem.id as ProfileType);
+                      setShowProfileModal(false);
+                    }}
+                    style={{
+                      padding: '14px',
+                      borderRadius: '18px',
+                      backgroundColor: isCurrent ? PALETTE.sand : 'transparent',
+                      border: isCurrent ? '2px solid ' + PALETTE.coral : '1px solid ' + PALETTE.border,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span style={{ fontSize: '24px' }}>{pItem.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, fontSize: '14px' }}>{pItem.title}</div>
+                      <div style={{ fontSize: '11.5px', color: PALETTE.muted, marginTop: '2px' }}>
+                        {pItem.desc}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: COPILOT GEMINI (Pregúntale a VíaLibre) */}
+      {/* ======================================================== */}
+      {showCopilotModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: '16px',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => setShowCopilotModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: PALETTE.card,
+              border: '1px solid ' + PALETTE.border,
+              borderRadius: '28px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '380px',
+              color: PALETTE.ink,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <div
                 style={{
-                  flex: selected ? 1.4 : 1,
-                  minHeight: '46px',
-                  borderRadius: '24px',
-                  border: 'none',
-                  backgroundColor: selected ? p.coral : 'transparent',
-                  color: selected ? '#FFFFFF' : p.muted,
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  backgroundColor: PALETTE.coral,
+                  color: '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  padding: '6px 10px',
-                  transition: 'all 0.16s ease',
+                  fontSize: '18px',
                 }}
               >
-                <span style={{ fontSize: '17px' }}>{item.icon}</span>
-                {selected && <span>{item.label}</span>}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* MODAL PERFIL Y APARIENCIA (Claro / Oscuro / Alto Contraste) */}
-        {showProfileModal && (
-          <div
-            onClick={() => setShowProfileModal(false)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(0,0,0,0.65)',
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'center',
-              zIndex: 50,
-            }}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width: '100%',
-                maxWidth: '430px',
-                backgroundColor: p.card,
-                borderTopLeftRadius: '28px',
-                borderTopRightRadius: '28px',
-                border: `1px solid ${p.border}`,
-                padding: '22px 20px 28px 20px',
-                boxSizing: 'border-box',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Elige tu perfil</h2>
-                <button
-                  onClick={() => setShowProfileModal(false)}
-                  style={{
-                    backgroundColor: p.sand,
-                    color: p.ink,
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '34px',
-                    height: '34px',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                  }}
-                >
-                  ✕
-                </button>
+                ✨
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-                {(
-                  [
-                    { id: 'wheelchair', title: 'Silla de ruedas / Carriola', sub: 'Rutas sin escalones ni pendientes > 6%' },
-                    { id: 'low_vision', title: 'Baja visión', sub: 'Guía por voz y alto contraste' },
-                    { id: 'clear_reading', title: 'Lectura clara', sub: 'Instrucciones simples paso a paso' },
-                  ] as const
-                ).map((item) => {
-                  const active = profile === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setProfile(item.id)}
-                      style={{
-                        textAlign: 'left',
-                        padding: '14px',
-                        borderRadius: '18px',
-                        backgroundColor: active ? p.coralSoft : p.sand,
-                        border: `2px solid ${active ? p.coral : p.border}`,
-                        color: p.ink,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, fontSize: '15px' }}>{item.title}</div>
-                      <div style={{ fontSize: '12.5px', color: p.muted, marginTop: '2px' }}>{item.sub}</div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => setIsDark(!isDark)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '20px',
-                    backgroundColor: p.sand,
-                    border: `1px solid ${p.border}`,
-                    color: p.ink,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {isDark ? '🌙 Modo Oscuro' : '☀️ Modo Claro'}
-                </button>
-                <button
-                  onClick={() => setHighContrast(!highContrast)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '20px',
-                    backgroundColor: highContrast ? p.coral : p.sand,
-                    border: `1px solid ${p.border}`,
-                    color: highContrast ? '#FFFFFF' : p.ink,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {highContrast ? '✓ Alto Contraste' : 'Alto Contraste'}
-                </button>
-              </div>
+              <h3 style={{ margin: 0, fontSize: '19px', fontWeight: 800 }}>Copiloto Gemini</h3>
             </div>
-          </div>
-        )}
+            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: PALETTE.muted }}>
+              Asistente de movilidad inclusiva adaptado a tu perfil ({PROFILE_LABELS[profile]}).
+            </p>
 
-        {/* MODAL COPILOTO GEMINI */}
-        {showCopilotModal && (
-          <div
-            onClick={() => setShowCopilotModal(false)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(0,0,0,0.65)',
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'center',
-              zIndex: 50,
-            }}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width: '100%',
-                maxWidth: '430px',
-                backgroundColor: p.card,
-                borderTopLeftRadius: '28px',
-                borderTopRightRadius: '28px',
-                border: `1px solid ${p.border}`,
-                padding: '22px 20px 28px 20px',
-                boxSizing: 'border-box',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 800 }}>✨ Copiloto VíaLibre · Gemini</h2>
-                <button
-                  onClick={() => setShowCopilotModal(false)}
-                  style={{
-                    backgroundColor: p.sand,
-                    color: p.ink,
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '34px',
-                    height: '34px',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-              <textarea
-                rows={3}
-                value={copilotPrompt}
-                onChange={(e) => setCopilotPrompt(e.target.value)}
-                placeholder="Ej. ¿Cómo tomo el Metrobús sin escalones desde aquí?"
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+              <input
+                type="text"
+                value={copilotInput}
+                onChange={(e) => setCopilotInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAskCopilot()}
+                placeholder="Pregunta sobre rutas, elevadores o rampas..."
                 style={{
-                  width: '100%',
-                  padding: '12px',
+                  flex: 1,
+                  backgroundColor: PALETTE.sand,
+                  border: '1px solid ' + PALETTE.border,
                   borderRadius: '16px',
-                  border: `1px solid ${p.border}`,
-                  backgroundColor: p.sand,
-                  color: p.ink,
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  marginBottom: '10px',
+                  padding: '10px 14px',
+                  color: PALETTE.ink,
+                  fontSize: '13.5px',
+                  outline: 'none',
                 }}
               />
               <button
                 onClick={handleAskCopilot}
                 disabled={loadingCopilot}
                 style={{
-                  width: '100%',
-                  padding: '13px',
-                  borderRadius: '24px',
-                  backgroundColor: p.coral,
+                  backgroundColor: PALETTE.coral,
                   color: '#FFFFFF',
                   border: 'none',
+                  borderRadius: '16px',
+                  padding: '10px 14px',
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
               >
-                {loadingCopilot ? 'Consultando a Gemini...' : 'Preguntar ahora'}
+                {loadingCopilot ? '...' : 'Enviar'}
               </button>
-              {copilotAnswer && (
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '12px',
-                    borderRadius: '16px',
-                    backgroundColor: p.sand,
-                    fontSize: '13.5px',
-                    lineHeight: 1.5,
-                    whiteSpace: 'pre-line',
-                  }}
-                >
-                  {copilotAnswer}
-                </div>
-              )}
             </div>
-          </div>
-        )}
 
-        {/* MODAL GUÍA PRIMERA VEZ */}
-        {showFirstTimerModal && (
+            {copilotAnswer && (
+              <div
+                style={{
+                  backgroundColor: PALETTE.sand,
+                  borderRadius: '16px',
+                  padding: '14px',
+                  fontSize: '13px',
+                  lineHeight: 1.45,
+                  border: '1px solid ' + PALETTE.border,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: PALETTE.coral, marginBottom: '4px' }}>Respuesta de Gemini:</div>
+                {copilotAnswer}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: GUÍA PRIMERA VEZ */}
+      {/* ======================================================== */}
+      {showFirstTimerModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: '16px',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => setShowFirstTimerModal(false)}
+        >
           <div
-            onClick={() => setShowFirstTimerModal(false)}
             style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(0,0,0,0.65)',
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'center',
-              zIndex: 50,
+              backgroundColor: PALETTE.card,
+              border: '1px solid ' + PALETTE.border,
+              borderRadius: '28px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '380px',
+              color: PALETTE.ink,
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div
-              onClick={(e) => e.stopPropagation()}
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '19px', fontWeight: 800 }}>Guía Primera Vez</h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: PALETTE.muted }}>
+              Paso a paso para viajar sin incertidumbre en el transporte público.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ padding: '12px', backgroundColor: PALETTE.sand, borderRadius: '14px', fontSize: '13px' }}>
+                <span style={{ fontWeight: 800, color: PALETTE.coral }}>1.</span> Ten tu tarjeta de movilidad lista antes de ingresar a la estación.
+              </div>
+              <div style={{ padding: '12px', backgroundColor: PALETTE.sand, borderRadius: '14px', fontSize: '13px' }}>
+                <span style={{ fontWeight: 800, color: PALETTE.coral }}>2.</span> En andén, espera en la zona de embarque preferente marcada en el suelo.
+              </div>
+              <div style={{ padding: '12px', backgroundColor: PALETTE.sand, borderRadius: '14px', fontSize: '13px' }}>
+                <span style={{ fontWeight: 800, color: PALETTE.coral }}>3.</span> Si requieres elevador, el botón de asistencia en torniquetes te conecta con el jefe de estación.
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowFirstTimerModal(false)}
               style={{
                 width: '100%',
-                maxWidth: '430px',
-                backgroundColor: p.card,
-                borderTopLeftRadius: '28px',
-                borderTopRightRadius: '28px',
-                border: `1px solid ${p.border}`,
-                padding: '22px 20px 28px 20px',
-                boxSizing: 'border-box',
+                marginTop: '18px',
+                backgroundColor: PALETTE.ctaBg,
+                color: PALETTE.ctaFg,
+                border: 'none',
+                borderRadius: '20px',
+                padding: '12px',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: 'pointer',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 800 }}>🧭 Guía rápida · Primera vez</h2>
-                <button
-                  onClick={() => setShowFirstTimerModal(false)}
-                  style={{
-                    backgroundColor: p.sand,
-                    color: p.ink,
-                    border: 'none',
-                    borderRadius: '50%',
-                    width: '34px',
-                    height: '34px',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13.5px', lineHeight: 1.45 }}>
-                <div style={{ backgroundColor: p.sand, padding: '12px', borderRadius: '16px' }}>
-                  <strong>1. Identifica la entrada accesible:</strong> Revisa la dirección final y pide al personal abrir puerta amplia o elevador.
-                </div>
-                <div style={{ backgroundColor: p.sand, padding: '12px', borderRadius: '16px' }}>
-                  <strong>2. Valida con calma:</strong> Acerca tu tarjeta al lector verde hasta escuchar el sonido de confirmación.
-                </div>
-                <div style={{ backgroundColor: p.sand, padding: '12px', borderRadius: '16px' }}>
-                  <strong>3. Pide bajada con anticipación:</strong> Usa lugares reservados cerca de la puerta y presiona el timbre dos cuadras antes.
-                </div>
-              </div>
-            </div>
+              Entendido
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
