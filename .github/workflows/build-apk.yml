@@ -41,12 +41,17 @@ jobs:
       - name: Compilar APK en Release
         env:
           SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY || '' }}
+          MAPS_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_KEY || secrets.GOOGLE_MAPS_API_KEY || '' }}
         run: |
           cd mobile
+          if [ -n "$MAPS_KEY" ]; then
+            echo "MAPS_API_KEY=${MAPS_KEY}" >> android/local.properties
+          fi
           flutter build apk --release --no-tree-shake-icons \
             --dart-define=BFF_BASE_URL=https://bff-steel.vercel.app \
             --dart-define=SUPABASE_URL=https://aiztivgrynirvdkcdugd.supabase.co \
-            --dart-define=SUPABASE_ANON_KEY="${SUPABASE_KEY}"
+            --dart-define=SUPABASE_ANON_KEY="${SUPABASE_KEY}" \
+            --dart-define=GOOGLE_MAPS_ANDROID_KEY="${MAPS_KEY}"
 
       - name: Publicar APK para descarga directa como Artifact
         uses: actions/upload-artifact@v4

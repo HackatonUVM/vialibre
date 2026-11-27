@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { computeWalkOrTransitRoutes } from '@/lib/apis/open-maps';
+import { computeWalkOrTransitRoutes, searchPlacesWithAccessibility } from '@/lib/apis/open-maps';
 import { decodeEncodedPolyline, toLineStringWKT } from '@/lib/geo/polyline';
 import { supabaseAdmin } from '@/lib/supabase';
 
@@ -12,10 +12,42 @@ export async function POST(req: NextRequest) {
       longitude: body.origin?.lng ?? body.origin?.longitude ?? -99.1332,
     };
 
-    const destQuery = body.destinationQuery || 'Destino seleccionado';
+    const destQuery = (body.destinationQuery || '').trim();
+    let destinationLat = body.destination?.lat ?? body.destination?.latitude;
+    let destinationLng = body.destination?.lng ?? body.destination?.longitude;
+    let resolvedName = destQuery || 'Destino seleccionado';
+    let resolvedAddress = destQuery ? `${destQuery}, CDMX` : 'Ciudad de México';
+    let resolvedOptions = {
+      wheelchairAccessibleEntrance: true,
+      wheelchairAccessibleRestroom: true,
+      wheelchairAccessibleParking: true,
+      wheelchairAccessibleSeating: true,
+    };
+
+    // Si no se proporcionaron coordenadas exactas pero sí una búsqueda textual,
+    // geocodificar usando Photon/Nominatim (OpenStreetMap)
+    if ((destinationLat === undefined || destinationLng === undefined) && destQuery.length > 0) {
+      try {
+        const places = await searchPlacesWithAccessibility({
+          lat: origin.latitude,
+          lng: origin.longitude,
+          query: destQuery,
+        });
+        if (places.length > 0) {
+          destinationLat = places[0].lat;
+          destinationLng = places[0].lng;
+          resolvedName = places[0].name;
+          resolvedAddress = places[0].formattedAddress;
+          resolvedOptions = places[0].accessibilityOptions;
+        }
+      } catch (geocodeErr) {
+        console.warn('Geocodificación con OpenStreetMap no completada, usando posición aproximada:', geocodeErr);
+      }
+    }
+
     const destination = {
-      latitude: body.destination?.lat ?? body.destination?.latitude ?? origin.latitude + 0.008,
-      longitude: body.destination?.lng ?? body.destination?.longitude ?? origin.longitude + 0.006,
+      latitude: destinationLat ?? origin.latitude + 0.008,
+      longitude: destinationLng ?? origin.longitude + 0.006,
     };
 
     const profile = body.profile || 'general';
@@ -33,7 +65,7 @@ export async function POST(req: NextRequest) {
       maxSlopePercent,
       modes,
       includeFirstTimerGuide,
-      destinationQuery: destQuery,
+      destinationQuery: resolvedName,
     });
 
     const primaryRoute = routes[0];
@@ -59,16 +91,11 @@ export async function POST(req: NextRequest) {
 
     const resolvedDestination = {
       placeId: 'dest_resolved_poi',
-      name: destQuery,
-      formattedAddress: `${destQuery}, CDMX`,
+      name: resolvedName,
+      formattedAddress: resolvedAddress,
       lat: destination.latitude,
       lng: destination.longitude,
-      accessibilityOptions: {
-        wheelchairAccessibleEntrance: true,
-        wheelchairAccessibleRestroom: true,
-        wheelchairAccessibleParking: true,
-        wheelchairAccessibleSeating: true,
-      },
+      accessibilityOptions: resolvedOptions,
     };
 
     return NextResponse.json({

@@ -193,8 +193,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     try {
       final pos = await Geolocator.getCurrentPosition();
       final target = LatLng(pos.latitude, pos.longitude);
-      final ctrl = await _mapController.future;
-      await ctrl.animateCamera(CameraUpdate.newLatLngZoom(target, 16));
+      if (_mapController.isCompleted) {
+        final ctrl = await _mapController.future;
+        await ctrl.animateCamera(CameraUpdate.newLatLngZoom(target, 16));
+      }
       setState(() {
         _currentCenter = target;
         _hasLocationPermission = true;
@@ -254,7 +256,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       });
 
       if (res.routes.isNotEmpty) {
-        await _fitRouteOnMap(res.routes.first, res.resolvedDestination);
+        unawaited(_fitRouteOnMap(res.routes.first, res.resolvedDestination));
         if (!mounted) return;
         _openRoutesSheet(res.resolvedDestination?.name ?? query);
       }
@@ -551,6 +553,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             _MapsKeyPreviewPlaceholder(
               isLoading: _hasMapsApiKey == null,
               barriersCount: _barriers.length,
+              selectedRoute: _selectedRoute,
+              onOpenRoutesSheet: () {
+                _openRoutesSheet(
+                  _searchController.text.isEmpty
+                      ? 'Destino'
+                      : _searchController.text,
+                );
+              },
             ),
           SafeArea(
             bottom: false,
@@ -964,10 +974,14 @@ class _MapsKeyPreviewPlaceholder extends StatelessWidget {
   const _MapsKeyPreviewPlaceholder({
     required this.isLoading,
     required this.barriersCount,
+    this.selectedRoute,
+    this.onOpenRoutesSheet,
   });
 
   final bool isLoading;
   final int barriersCount;
+  final TransitRouteOption? selectedRoute;
+  final VoidCallback? onOpenRoutesSheet;
 
   @override
   Widget build(BuildContext context) {
@@ -998,27 +1012,39 @@ class _MapsKeyPreviewPlaceholder extends StatelessWidget {
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      color: p.lavender,
+                      color: selectedRoute != null ? p.coral : p.lavender,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.map_rounded,
+                      selectedRoute != null ? Icons.directions_rounded : Icons.map_rounded,
                       size: 30,
-                      color: p.lavenderInk,
+                      color: selectedRoute != null ? Colors.white : p.lavenderInk,
                     ),
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Mapa listo para conectar Google Maps',
+                    selectedRoute != null
+                        ? selectedRoute!.summaryLabel
+                        : 'Navegación y Rutas VíaLibre',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Agrega MAPS_API_KEY en android/local.properties o GOOGLE_MAPS_ANDROID_KEY para ver el mapa ($barriersCount obstáculos en zona).',
+                    selectedRoute != null
+                        ? '${selectedRoute!.durationMinutes} min · ${(selectedRoute!.distanceMeters / 1000).toStringAsFixed(1)} km · Pendiente máx: ${selectedRoute!.maxSlopePercent?.toStringAsFixed(1) ?? "0"}%'
+                        : 'Busca tu destino arriba para calcular rutas accesibles paso a paso con pendientes y rampas ($barriersCount obstáculos registrados en zona).',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
+                  if (selectedRoute != null && onOpenRoutesSheet != null) ...[
+                    const SizedBox(height: 16),
+                    AccessibleButton(
+                      label: 'Ver pasos e indicaciones detalladas',
+                      icon: Icons.list_alt_rounded,
+                      onPressed: onOpenRoutesSheet!,
+                    ),
+                  ],
                 ],
               ),
             ),

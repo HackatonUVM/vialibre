@@ -31,11 +31,25 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        val dartDefinesRaw = (project.findProperty("dart-defines") as String?) ?: ""
+        var dartMapsKey = ""
+        if (dartDefinesRaw.isNotEmpty()) {
+            try {
+                val decoded = String(java.util.Base64.getDecoder().decode(dartDefinesRaw))
+                for (pair in decoded.split(",")) {
+                    val parts = pair.split("=")
+                    if (parts.size >= 2 && parts[0] == "GOOGLE_MAPS_ANDROID_KEY") {
+                        dartMapsKey = java.net.URLDecoder.decode(parts[1], "UTF-8")
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
         manifestPlaceholders["MAPS_API_KEY"] =
             (project.findProperty("GOOGLE_MAPS_ANDROID_KEY") as String?)
                 ?: System.getenv("GOOGLE_MAPS_ANDROID_KEY")
                 ?: localProps.getProperty("MAPS_API_KEY")
-                ?: ""
+                ?: (if (dartMapsKey.isNotEmpty()) dartMapsKey else "")
     }
 
     buildTypes {
