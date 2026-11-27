@@ -107,7 +107,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             width: 36,
                             height: 36,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -241,7 +241,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 children: [
                   SwitchListTile(
-                    activeThumbColor: p.coral,
+                    activeColor: p.coral,
                     title: const Text(
                       'Modo Primera Vez en transporte',
                       style: TextStyle(fontWeight: FontWeight.w700),
@@ -256,7 +256,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    activeThumbColor: p.coral,
+                    activeColor: p.coral,
                     title: const Text(
                       'Evitar pendientes fuertes (> 8%)',
                       style: TextStyle(fontWeight: FontWeight.w700),
@@ -268,7 +268,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    activeThumbColor: p.coral,
+                    activeColor: p.coral,
                     title: const Text(
                       'Alto contraste reforzado',
                       style: TextStyle(fontWeight: FontWeight.w700),

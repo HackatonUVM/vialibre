@@ -506,7 +506,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 target: _currentCenter,
                 zoom: 15,
               ),
-              mapId: hasMapId ? Env.googleMapsMapId : null,
+              cloudMapId: hasMapId ? Env.googleMapsMapId : null,
               style: (!hasMapId && p.isDark) ? _darkMapStyle : null,
               markerType: hasMapId
                   ? GoogleMapMarkerType.advancedMarker

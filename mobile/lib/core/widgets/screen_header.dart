@@ -75,7 +75,7 @@ class ScreenHeader extends ConsumerWidget {
                   width: 42,
                   height: 42,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                 ),
               ),
               const SizedBox(width: 10),
