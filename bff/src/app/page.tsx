@@ -1,35 +1,108 @@
 export default function HomePage() {
+  const endpoints = [
+    {
+      method: 'GET /api/health',
+      badge: 'Público',
+      accent: '#86EFAC',
+      desc: 'Monitoreo de salud del servicio e integraciones activas (Supabase, Gemini, Google Maps).',
+    },
+    {
+      method: 'POST /api/routes/accessible',
+      badge: 'Activo',
+      accent: '#EF4756',
+      desc: 'Cálculo de rutas peatonales adaptadas por perfil considerando pendientes y barreras.',
+    },
+    {
+      method: 'POST /api/barriers/report',
+      badge: 'Bearer JWT / Demo',
+      accent: '#DCE0FF',
+      desc: 'Reporte ciudadano con visión/audio de Gemini, clasificación Open311 y deduplicación en 25m.',
+    },
+    {
+      method: 'GET /api/barriers/nearby',
+      badge: 'Público',
+      accent: '#86EFAC',
+      desc: 'Consulta geoespacial PostGIS de obstáculos cercanos activos.',
+    },
+    {
+      method: 'POST /api/notices/simplify',
+      badge: 'Bearer JWT / Demo',
+      accent: '#FDE68A',
+      desc: 'Traducción de comunicados oficiales a Lenguaje Claro (ISO 24495-1) en 3 bloques.',
+    },
+  ];
+
   return (
-    <main style={{ maxWidth: '850px', margin: '0 auto', padding: '48px 24px' }}>
-      <header style={{ borderBottom: '1px solid #1E293B', paddingBottom: '24px', marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            backgroundColor: '#FFB300',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#0A192F',
-            fontWeight: 'bold',
-            fontSize: '24px'
-          }}>
-            V
-          </div>
+    <main style={{ maxWidth: '860px', margin: '0 auto', padding: '44px 20px' }}>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap',
+          borderBottom: '1px solid #363640',
+          paddingBottom: '24px',
+          marginBottom: '28px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <img
+            src="/logo_dark.png"
+            alt="Logo VíaLibre"
+            style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '14px',
+              objectFit: 'cover',
+              border: '1px solid #363640',
+            }}
+          />
           <div>
-            <h1 style={{ margin: 0, fontSize: '28px', color: '#FFFFFF' }}>VíaLibre — BFF & API Gateway</h1>
-            <p style={{ margin: '4px 0 0 0', color: '#94A3B8', fontSize: '15px' }}>
-              Reto 2: Ciudad para todas y todos · ODS 10 (10.2) y ODS 11 (11.2, 11.7)
-            </p>
+            <div style={{ fontSize: '12px', color: '#B8B8C4', fontWeight: 600 }}>
+              Reto 2 · Ciudad para todas y todos · ODS 10 y 11
+            </div>
+            <h1 style={{ margin: '2px 0 0 0', fontSize: '26px', color: '#FAF8F5', fontWeight: 800 }}>
+              VíaLibre — Calma Urbana & BFF
+            </h1>
           </div>
         </div>
+
+        <a
+          href="/app"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: '#EF4756',
+            color: '#FFFFFF',
+            padding: '13px 22px',
+            borderRadius: '28px',
+            textDecoration: 'none',
+            fontWeight: 700,
+            fontSize: '15px',
+          }}
+        >
+          Abrir App VíaLibre →
+        </a>
       </header>
 
-      <section style={{ backgroundColor: '#0F2444', borderRadius: '12px', padding: '24px', marginBottom: '28px', border: '1px solid #1E3A8A' }}>
-        <h2 style={{ margin: '0 0 12px 0', fontSize: '18px', color: '#FFB300' }}>Estado del Servicio</h2>
-        <p style={{ margin: 0, color: '#E2E8F0', lineHeight: 1.6 }}>
-          Este servicio opera como la capa segura <strong>BFF (Backend for Frontend)</strong> en Next.js App Router para Vercel, protegiendo las credenciales de <strong>Google Gemini (@google/genai)</strong>, <strong>Google Maps Platform</strong> y orquestando la deduplicación espacial en <strong>Supabase (PostGIS + pgvector)</strong>.
+      <section
+        style={{
+          backgroundColor: '#1D1D1F',
+          borderRadius: '24px',
+          padding: '24px',
+          marginBottom: '28px',
+          border: '1px solid #363640',
+        }}
+      >
+        <h2 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#FAF8F5', fontWeight: 700 }}>
+          Portal Web y Gateway BFF en línea
+        </h2>
+        <p style={{ margin: 0, color: '#B8B8C4', lineHeight: 1.6, fontSize: '14px' }}>
+          Accede directamente a la versión web móvil de <strong style={{ color: '#FAF8F5' }}>VíaLibre</strong> con el
+          sistema de diseño <strong style={{ color: '#EF4756' }}>Calma Urbana</strong> o consulta el estado de los
+          endpoints conectados a Supabase, Google Gemini y Google Maps Platform.
         </p>
 
         <div style={{ marginTop: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -39,16 +112,16 @@ export default function HomePage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              backgroundColor: '#FFB300',
-              color: '#0A192F',
+              backgroundColor: '#FAF8F5',
+              color: '#18181B',
               padding: '12px 20px',
-              borderRadius: '8px',
+              borderRadius: '24px',
               textDecoration: 'none',
-              fontWeight: 'bold',
-              fontSize: '15px',
+              fontWeight: 700,
+              fontSize: '14px',
             }}
           >
-            📱 Abrir App Móvil Web (PWA para iPhone & Android)
+            ✨ Ir a la App Móvil Web (/app)
           </a>
           <a
             href="/api/health"
@@ -58,14 +131,14 @@ export default function HomePage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              backgroundColor: '#1E293B',
-              color: '#93C5FD',
+              backgroundColor: '#26262C',
+              color: '#FAF8F5',
               padding: '12px 20px',
-              borderRadius: '8px',
+              borderRadius: '24px',
               textDecoration: 'none',
-              fontWeight: '600',
+              fontWeight: 600,
               fontSize: '14px',
-              border: '1px solid #3B82F6',
+              border: '1px solid #363640',
             }}
           >
             🩺 Probar /api/health
@@ -74,72 +147,42 @@ export default function HomePage() {
       </section>
 
       <section>
-        <h2 style={{ fontSize: '20px', color: '#FFFFFF', marginBottom: '16px' }}>Endpoints Activos de la API</h2>
-        
+        <h2 style={{ fontSize: '19px', color: '#FAF8F5', marginBottom: '14px', fontWeight: 700 }}>
+          Endpoints Activos de la API
+        </h2>
         <div style={{ display: 'grid', gap: '12px' }}>
-          <div style={{ backgroundColor: '#0F2444', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #10B981' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 'bold', color: '#10B981', fontFamily: 'monospace' }}>GET /api/health</span>
-              <span style={{ fontSize: '12px', color: '#94A3B8' }}>Público</span>
+          {endpoints.map((ep) => (
+            <div
+              key={ep.method}
+              style={{
+                backgroundColor: '#1D1D1F',
+                padding: '16px 18px',
+                borderRadius: '18px',
+                border: '1px solid #363640',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontWeight: 700, color: ep.accent, fontFamily: 'monospace', fontSize: '14px' }}>
+                  {ep.method}
+                </span>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: '#B8B8C4',
+                    backgroundColor: '#26262C',
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    border: '1px solid #363640',
+                  }}
+                >
+                  {ep.badge}
+                </span>
+              </div>
+              <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#B8B8C4', lineHeight: 1.5 }}>{ep.desc}</p>
             </div>
-            <p style={{ margin: '6px 0 0 0', fontSize: '14px', color: '#CBD5E1' }}>Monitoreo de estado de salud del servicio e integraciones activas.</p>
-          </div>
-
-          <div style={{ backgroundColor: '#0F2444', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #3B82F6' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 'bold', color: '#60A5FA', fontFamily: 'monospace' }}>POST /api/barriers/report</span>
-              <span style={{ fontSize: '12px', color: '#94A3B8' }}>Bearer JWT</span>
-            </div>
-            <p style={{ margin: '6px 0 0 0', fontSize: '14px', color: '#CBD5E1' }}>
-              Reporte ciudadano con visión/audio de Gemini, clasificación Open311 y deduplicación atómica en 25m.
-            </p>
-          </div>
-
-          <div style={{ backgroundColor: '#0F2444', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #3B82F6' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 'bold', color: '#60A5FA', fontFamily: 'monospace' }}>GET /api/barriers/nearby</span>
-              <span style={{ fontSize: '12px', color: '#94A3B8' }}>Público</span>
-            </div>
-            <p style={{ margin: '6px 0 0 0', fontSize: '14px', color: '#CBD5E1' }}>
-              Consulta geoespacial de barreras activas cercanas mediante coordenadas y radio en metros.
-            </p>
-          </div>
-
-          <div style={{ backgroundColor: '#0F2444', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #F59E0B' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 'bold', color: '#FBBF24', fontFamily: 'monospace' }}>POST /api/routes/accessible</span>
-              <span style={{ fontSize: '12px', color: '#94A3B8' }}>Público</span>
-            </div>
-            <p style={{ margin: '6px 0 0 0', fontSize: '14px', color: '#CBD5E1' }}>
-              Enrutamiento peatonal accesible por perfil (silla de ruedas, baja visión, carriola) con pendientes y alertas.
-            </p>
-          </div>
-
-          <div style={{ backgroundColor: '#0F2444', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #A855F7' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 'bold', color: '#C084FC', fontFamily: 'monospace' }}>POST /api/notices/simplify</span>
-              <span style={{ fontSize: '12px', color: '#94A3B8' }}>Bearer JWT</span>
-            </div>
-            <p style={{ margin: '6px 0 0 0', fontSize: '14px', color: '#CBD5E1' }}>
-              Traductor de comunicados y avisos públicos a Lenguaje Claro (ISO 24495-1) en 3 bloques accesibles.
-            </p>
-          </div>
-
-          <div style={{ backgroundColor: '#0F2444', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #64748B' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 'bold', color: '#94A3B8', fontFamily: 'monospace' }}>POST /api/storage/signed-url</span>
-              <span style={{ fontSize: '12px', color: '#94A3B8' }}>Bearer JWT</span>
-            </div>
-            <p style={{ margin: '6px 0 0 0', fontSize: '14px', color: '#CBD5E1' }}>
-              Generación de URLs firmadas para subida directa de archivos mayores a 2MB a Supabase Storage.
-            </p>
-          </div>
+          ))}
         </div>
       </section>
-
-      <footer style={{ marginTop: '48px', paddingTop: '16px', borderTop: '1px solid #1E293B', color: '#64748B', fontSize: '13px', textAlign: 'center' }}>
-        Grupo Xiuh · UVM Campus Lomas Verdes · Hackatón Nacional de Innovación con IA Aplicada
-      </footer>
     </main>
   );
 }
