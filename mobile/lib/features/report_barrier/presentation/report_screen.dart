@@ -222,7 +222,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                                           ),
                                         ),
                                         Text(
-                                          'Confirmaciones: ${b.confirmations}',
+                                          'Confirmaciones: ${b.confirmationsCount}',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: p.muted,

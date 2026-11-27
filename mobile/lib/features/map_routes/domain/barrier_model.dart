@@ -52,6 +52,18 @@ class BarrierPin {
   bool get isSidewalkOrSlope =>
       category == 'broken_sidewalk' || category == 'steep_slope';
 
+  String get statusLabel {
+    switch (status) {
+      case 'resolved':
+        return 'Resuelta';
+      case 'in_review':
+        return 'En revisión';
+      case 'active':
+      default:
+        return 'Activa';
+    }
+  }
+
   factory BarrierPin.fromRpcJson(Map<String, dynamic> json) {
     return BarrierPin(
       id: (json['id'] as num).toInt(),
