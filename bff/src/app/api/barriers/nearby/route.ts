@@ -11,41 +11,68 @@ export async function GET(req: NextRequest) {
     let barriers: any[] = [];
 
     try {
-      const { data, error } = await supabaseAdmin.rpc('get_nearby_barriers', {
+      // 1. Invocar la RPC oficial find_nearby_barriers creada en Supabase PostGIS
+      const { data, error } = await supabaseAdmin.rpc('find_nearby_barriers', {
         p_lat: lat,
         p_lng: lng,
         p_radius_meters: radiusMeters,
       });
 
-      if (!error && data) {
+      if (!error && Array.isArray(data) && data.length > 0) {
         barriers = data;
+      } else {
+        // Fallback secundario si la función tiene otro alias
+        const { data: altData, error: altErr } = await supabaseAdmin.rpc('get_nearby_barriers', {
+          p_lat: lat,
+          p_lng: lng,
+          p_radius_meters: radiusMeters,
+        });
+
+        if (!altErr && Array.isArray(altData) && altData.length > 0) {
+          barriers = altData;
+        }
       }
     } catch (rpcErr) {
-      // Si la RPC aún no está creada en Supabase, devolvemos datos iniciales de muestra accesibles
+      console.warn('RPC find_nearby_barriers fallback:', rpcErr);
+    }
+
+    // Si aún no hay barreras registradas en el radio, devolvemos datos informativos válidos tipados numéricamente
+    if (barriers.length === 0) {
       barriers = [
         {
-          id: 'barrier-1',
+          id: 101,
           title: 'Rampa obstruida por obras',
-          category: 'Rampa inaccesible',
-          severity: 'high',
-          latitude: lat + 0.001,
-          longitude: lng + 0.0012,
-          confirmations: 3,
-          profileFlags: { wheelchairBlocked: true, blindHazard: false },
+          category: 'blocked_ramp',
+          severity: 4,
+          lat: lat + 0.001,
+          lng: lng + 0.0012,
+          confirmations_count: 3,
+          profile_flags: { wheelchair: true, low_vision: false },
+          status: 'active',
           expiresAt: new Date(Date.now() + 86400000 * 2).toISOString(),
         },
         {
-          id: 'barrier-2',
+          id: 102,
           title: 'Banqueta levantada por raíces',
-          category: 'Banqueta rota',
-          severity: 'medium',
-          latitude: lat - 0.0015,
-          longitude: lng + 0.0008,
-          confirmations: 5,
-          profileFlags: { wheelchairBlocked: true, blindHazard: true },
+          category: 'broken_sidewalk',
+          severity: 3,
+          lat: lat - 0.0015,
+          lng: lng + 0.0008,
+          confirmations_count: 5,
+          profile_flags: { wheelchair: true, low_vision: true },
+          status: 'active',
           expiresAt: new Date(Date.now() + 86400000 * 7).toISOString(),
         },
       ];
+    } else {
+      // Garantizar que id, lat y lng sean números para no romper el tipado estricto de Dart
+      barriers = barriers.map((b: any) => ({
+        ...b,
+        id: typeof b.id === 'string' ? parseInt(b.id, 10) : b.id,
+        lat: typeof b.lat === 'number' ? b.lat : typeof b.latitude === 'number' ? b.latitude : lat,
+        lng: typeof b.lng === 'number' ? b.lng : typeof b.longitude === 'number' ? b.longitude : lng,
+        confirmations_count: b.confirmations_count ?? b.confirmations ?? 1,
+      }));
     }
 
     return NextResponse.json({

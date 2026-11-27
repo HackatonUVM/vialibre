@@ -16,8 +16,15 @@ export async function GET(req: NextRequest) {
           .order('created_at', { ascending: false })
           .limit(20);
 
-        if (!error && data) {
-          return NextResponse.json({ barriers: data });
+        if (!error && Array.isArray(data)) {
+          const formatted = data.map((b: any) => ({
+            ...b,
+            id: typeof b.id === 'string' ? parseInt(b.id, 10) : b.id,
+            lat: b.lat ?? b.latitude ?? (b.location?.coordinates ? b.location.coordinates[1] : 19.4326),
+            lng: b.lng ?? b.longitude ?? (b.location?.coordinates ? b.location.coordinates[0] : -99.1332),
+            confirmations_count: b.confirmations_count ?? 1,
+          }));
+          return NextResponse.json({ barriers: formatted });
         }
       } catch (_) {}
     }

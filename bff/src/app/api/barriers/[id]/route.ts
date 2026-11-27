@@ -14,13 +14,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         .single();
 
       if (!error && data) {
-        return NextResponse.json({ barrier: data, ...data });
+        const item = {
+          ...data,
+          id: typeof data.id === 'string' ? parseInt(data.id, 10) : data.id,
+          lat: data.lat ?? data.latitude ?? (data.location?.coordinates ? data.location.coordinates[1] : 19.4326),
+          lng: data.lng ?? data.longitude ?? (data.location?.coordinates ? data.location.coordinates[0] : -99.1332),
+          confirmations_count: data.confirmations_count ?? 1,
+        };
+        return NextResponse.json({ barrier: item, ...item });
       }
     } catch (_) {}
 
-    // Fallback informativo
+    // Fallback informativo numérico y tipado para Dart
     const fallback = {
-      id: barrierId,
+      id: barrierId || 101,
       title: 'Rampa peatonal con obstrucción',
       description: 'Vehículo o escombro bloqueando paso a nivel.',
       category: 'blocked_ramp',

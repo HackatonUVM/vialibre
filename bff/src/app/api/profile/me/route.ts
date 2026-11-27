@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 let cachedProfile: any = {
+  accessibilityProfile: 'wheelchair',
   profileType: 'wheelchair',
+  avoidSlopes: true,
   avoidStairs: true,
   maxSlopePercent: 8.0,
+  ttsSpeed: 1.0,
+  largeText: false,
   highContrast: false,
   textToSpeech: false,
   simplifiedMode: true,
@@ -25,9 +29,13 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE() {
   cachedProfile = {
+    accessibilityProfile: 'wheelchair',
     profileType: 'general',
+    avoidSlopes: true,
     avoidStairs: false,
     maxSlopePercent: 12.0,
+    ttsSpeed: 1.0,
+    largeText: false,
     highContrast: false,
     textToSpeech: false,
     simplifiedMode: false,
