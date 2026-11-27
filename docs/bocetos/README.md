@@ -232,7 +232,7 @@ El stack fue seleccionado para cumplir estrictamente con las herramientas obliga
 VíaLibre funciona en tu teléfono Android sin necesidad de crear cuentas ni recordar contraseñas.
 
 ### Paso 1: Instalar y abrir la aplicación en Android
-1. Descarga e instala la aplicación **VíaLibre** en tu teléfono Android desde el enlace compartido por el equipo (`[PENDIENTE: enlace de descarga / APK]`).
+1. Descarga e instala la aplicación **VíaLibre** en tu teléfono Android desde [GitHub Releases (`app-release.apk` `v1.0.0-mvp`)](https://github.com/HackatonUVM/vialibre/releases/download/v1.0.0-mvp/app-release.apk), o ábrela directamente desde el navegador en la versión Web Móvil (PWA): https://bff-steel.vercel.app/app.
 2. Al abrirla por primera vez, acepta los permisos de **Ubicación**, **Cámara** y **Micrófono** para que pueda mostrarte rutas cercanas, analizar fotos de obstáculos y escuchar tus reportes por voz.
 
 ### Paso 2: Elegir tu perfil de movilidad o lectura
