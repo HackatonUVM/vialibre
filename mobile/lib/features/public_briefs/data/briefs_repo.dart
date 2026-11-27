@@ -85,6 +85,10 @@ class BriefsRepo {
       throw StateError('El backend no devolvió credenciales de carga para PDF.');
     }
 
+    if (!Env.isInitialized) {
+      throw StateError('Supabase no está disponible en este momento.');
+    }
+
     await Supabase.instance.client.storage
         .from('public-briefs')
         .uploadToSignedUrl(objectPath, token, pdfFile);

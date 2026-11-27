@@ -15,8 +15,13 @@ class BarriersRealtimeRepo {
   final BffClient _bff;
   RealtimeChannel? _channel;
 
-  SupabaseClient? get _client =>
-      Env.isSupabaseConfigured ? Supabase.instance.client : null;
+  SupabaseClient? get _client {
+    try {
+      return Env.isInitialized ? Supabase.instance.client : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<List<BarrierPin>> fetchNearby({
     required double lat,

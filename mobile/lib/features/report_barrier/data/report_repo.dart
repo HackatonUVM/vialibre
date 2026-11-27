@@ -157,19 +157,23 @@ class ReportRepo {
   }
 
   Future<String?> _uploadSignedPhoto(File file) async {
-    if (!Env.isSupabaseConfigured) return null;
-    final ticket = await _bff.postJson('/api/barriers/upload-url', {
-      'mimeType': 'image/jpeg',
-      'fileExt': 'jpg',
-    });
-    final objectPath = ticket['objectPath'] as String?;
-    final token = ticket['token'] as String?;
-    if (objectPath == null || token == null) return null;
+    if (!Env.isInitialized) return null;
+    try {
+      final ticket = await _bff.postJson('/api/barriers/upload-url', {
+        'mimeType': 'image/jpeg',
+        'fileExt': 'jpg',
+      });
+      final objectPath = ticket['objectPath'] as String?;
+      final token = ticket['token'] as String?;
+      if (objectPath == null || token == null) return null;
 
-    await Supabase.instance.client.storage
-        .from('barrier-evidence')
-        .uploadToSignedUrl(objectPath, token, file);
-    return objectPath;
+      await Supabase.instance.client.storage
+          .from('barrier-evidence')
+          .uploadToSignedUrl(objectPath, token, file);
+      return objectPath;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<ReportOutcome> submitReport({

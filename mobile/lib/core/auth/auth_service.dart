@@ -23,8 +23,13 @@ class AuthStateSummary {
 }
 
 class AuthService {
-  SupabaseClient? get _client =>
-      Env.isSupabaseConfigured ? Supabase.instance.client : null;
+  SupabaseClient? get _client {
+    try {
+      return Env.isInitialized ? Supabase.instance.client : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Garantiza sesión anónima transparente; refresca si expiró y captura
   /// `anonymous_provider_disabled` (422) sin bloquear el arranque de la app.

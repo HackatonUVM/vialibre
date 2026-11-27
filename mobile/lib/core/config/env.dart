@@ -23,6 +23,10 @@ class Env {
     defaultValue: '',
   );
 
+  static bool isInitialized = false;
+
   static bool get isSupabaseConfigured =>
-      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+      supabaseUrl.isNotEmpty &&
+      supabaseAnonKey.isNotEmpty &&
+      supabaseAnonKey.startsWith('ey');
 }

@@ -22,6 +22,7 @@ Future<void> main() async {
         url: Env.supabaseUrl,
         publishableKey: Env.supabaseAnonKey,
       );
+      Env.isInitialized = true;
     }
   } catch (e) {
     debugPrint('Aviso Supabase: $e');
